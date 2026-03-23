@@ -14,8 +14,8 @@ import requests
 # ---------------------------------------------------------------------------
 # Configuration
 # ---------------------------------------------------------------------------
-OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "")
-OPENAI_MODEL = os.environ.get("OPENAI_MODEL", "gpt-4o-mini")
+GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
+GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-2.0-flash")
 
 RSS_FEEDS = [
     "https://techcrunch.com/category/artificial-intelligence/feed/",
@@ -88,9 +88,9 @@ Rules:
 
 
 def call_llm(article: dict) -> dict | None:
-    """Send article to OpenAI-compatible API; return parsed JSON or None."""
-    if not OPENAI_API_KEY:
-        print("✖ OPENAI_API_KEY is not set.")
+    """Send article to Google Gemini API; return parsed JSON or None."""
+    if not GEMINI_API_KEY:
+        print("✖ GEMINI_API_KEY is not set.")
         return None
 
     user_message = (
@@ -98,26 +98,35 @@ def call_llm(article: dict) -> dict | None:
         f"Article text:\n{article['body']}"
     )
 
+    url = (
+        f"https://generativelanguage.googleapis.com/v1beta/models/"
+        f"{GEMINI_MODEL}:generateContent?key={GEMINI_API_KEY}"
+    )
+
     try:
         resp = requests.post(
-            "https://api.openai.com/v1/chat/completions",
-            headers={
-                "Authorization": f"Bearer {OPENAI_API_KEY}",
-                "Content-Type": "application/json",
-            },
+            url,
+            headers={"Content-Type": "application/json"},
             json={
-                "model": OPENAI_MODEL,
-                "temperature": 0.7,
-                "response_format": {"type": "json_object"},
-                "messages": [
-                    {"role": "system", "content": SYSTEM_PROMPT},
-                    {"role": "user", "content": user_message},
+                "contents": [
+                    {
+                        "parts": [
+                            {"text": SYSTEM_PROMPT + "\n\n" + user_message}
+                        ]
+                    }
                 ],
+                "generationConfig": {
+                    "temperature": 0.7,
+                    "responseMimeType": "application/json",
+                },
             },
             timeout=60,
         )
         resp.raise_for_status()
-        content = resp.json()["choices"][0]["message"]["content"]
+
+        # Gemini response structure
+        result = resp.json()
+        content = result["candidates"][0]["content"]["parts"][0]["text"]
         data = json.loads(content)
 
         # Basic validation
