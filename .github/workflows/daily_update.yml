@@ -22,6 +22,11 @@ jobs:
         with:
           python-version: "3.12"
 
+      - name: Debug — list files
+        run: |
+          echo "Current directory: $(pwd)"
+          ls -la
+
       - name: Install dependencies
         run: pip install -r requirements.txt
 
