@@ -1,99 +1,52 @@
-# AI News for English Learners 📰
+# AI Agent Daily Digest
 
-A fully automated, free-to-host MVP that curates one AI news article per day and turns it into a simple English lesson — vocabulary, example sentence, and discussion question.
+A fully automated, free-to-host news digest that curates 3-5 AI agent articles daily — with English vocabulary lessons, detailed summaries, and a 30-day browsable archive.
 
-**Stack:** Python · Google Gemini API · GitHub Actions · GitHub Pages
+**Stack:** Python · Google Gemini API (free tier) · GitHub Actions · GitHub Pages
 
 ---
 
-## Repository Structure
+## Features
+
+- **3-5 curated articles daily** filtered for AI agent relevance (releases, technical deep-dives, use cases)
+- **Expandable cards** — headline + one-liner on the surface, click to reveal full summary, vocabulary, and discussion questions
+- **English learning** — 3 vocabulary words per article with definitions and example sentences (English-only, dictionary style)
+- **30-day archive** — browse past digests with date navigation and archive grid
+- **Dark-themed UI** — clean, mobile-friendly, editorial design
+- **Category tagging** — release / technical / use-case / industry / research
+
+## Repository structure
 
 ```
-├── main.py                          # Fetches RSS → calls LLM → generates HTML
+├── main.py                          # RSS → Gemini → HTML pipeline
 ├── requirements.txt                 # Python dependencies
-├── index.html                       # Auto-generated (don't edit by hand)
+├── index.html                       # Auto-generated (don't edit)
+├── archives/                        # Daily JSON archives (auto-managed)
+│   ├── 2026-03-24.json
+│   ├── 2026-03-23.json
+│   └── ...
 ├── .github/workflows/
-│   └── daily_update.yml             # Cron job: runs daily at 08:00 UTC
+│   └── daily_update.yml             # Runs daily at 08:00 JST
 └── README.md
 ```
 
----
+## Setup
 
-## Setup Instructions
+1. **Create a public GitHub repository** and upload all files
+2. **Add your Gemini API key**: Settings → Secrets → Actions → `GEMINI_API_KEY` (get one free at [aistudio.google.com/apikey](https://aistudio.google.com/apikey))
+3. **Enable GitHub Pages**: Settings → Pages → Deploy from branch → main / root
+4. **Test**: Actions tab → Daily AI Agent Digest → Run workflow
 
-### 1. Create the Repository
-
-1. Go to **github.com → New repository**.
-2. Name it whatever you like (e.g., `ai-news-esl`).
-3. Make it **Public** (required for free GitHub Pages).
-4. Upload all the files from this project, keeping the folder structure intact.
-
-### 2. Add Your API Key as a Secret
-
-1. In your repository, go to **Settings → Secrets and variables → Actions**.
-2. Click **New repository secret**.
-3. Set the **Name** to: `GEMINI_API_KEY`
-4. Paste your Google Gemini API key as the **Value** (get one free at [aistudio.google.com](https://aistudio.google.com/apikey)).
-5. Click **Add secret**.
-
-> Your key is encrypted and never appears in logs or code.
-
-### 3. Enable GitHub Pages
-
-1. Go to **Settings → Pages**.
-2. Under **Source**, select **Deploy from a branch**.
-3. Set the branch to **main** and the folder to **/ (root)**.
-4. Click **Save**.
-5. After a minute your site will be live at: `https://<your-username>.github.io/<repo-name>/`
-
-### 4. Test It
-
-1. Go to **Actions** tab in your repo.
-2. Select the **Daily AI News Update** workflow on the left.
-3. Click the **Run workflow** dropdown button → **Run workflow**.
-4. Wait ~30 seconds for it to finish, then check your GitHub Pages URL.
-
-### 5. Customization
-
-| What                          | Where                           |
-|-------------------------------|---------------------------------|
-| Change the schedule           | `daily_update.yml` → `cron`     |
-| Use a different LLM model     | Set `GEMINI_MODEL` env variable |
-| Add or swap RSS feeds         | `main.py` → `RSS_FEEDS` list   |
-| Change the page design        | `main.py` → `build_html()`     |
-
-The cron time `0 8 * * *` means 08:00 UTC every day. Use [crontab.guru](https://crontab.guru/) to adjust.
-
----
-
-## How It Works
-
-```
-┌──────────┐     ┌──────────┐     ┌──────────┐     ┌──────────┐
-│ RSS Feed │────▶│ main.py  │────▶│ Gemini   │────▶│index.html│
-│(TechCrunch)   │ (fetch)  │     │ (simplify)│    │ (static) │
-└──────────┘     └──────────┘     └──────────┘     └──────────┘
-                                                         │
-                              GitHub Actions commits ─────┘
-                              GitHub Pages serves it
-```
-
-Every day at 08:00 UTC, GitHub Actions runs `main.py`, which:
-1. Pulls the latest article from RSS feeds
-2. Sends it to the LLM with instructions to simplify it
-3. Builds a clean, mobile-friendly HTML page
-4. Commits and pushes `index.html` back to the repo
-
----
+Your site will be live at `https://<username>.github.io/<repo>/`
 
 ## Cost
 
-- **GitHub Actions:** ~30 seconds/run × 30 days = well within the free tier (2,000 min/month)
-- **Gemini API:** Free tier includes 15 requests/minute — more than enough for 1 daily call
-- **Hosting:** Free via GitHub Pages
+- **Gemini API**: Free tier (15 RPM) — this uses 1 call/day
+- **GitHub Actions**: ~30 sec/run — well within free tier
+- **Hosting**: Free via GitHub Pages
 
----
+**Total: $0/month**
 
 ## License
 
-MIT — do whatever you want with it.
+MIT
