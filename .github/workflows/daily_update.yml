@@ -27,9 +27,9 @@ jobs:
 
       - name: Run generator
         env:
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           # Optional: override model via secret
-          # OPENAI_MODEL: ${{ secrets.OPENAI_MODEL }}
+          # GEMINI_MODEL: ${{ secrets.GEMINI_MODEL }}
         run: python main.py
 
       - name: Commit and push changes
