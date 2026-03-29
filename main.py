@@ -1,12 +1,17 @@
 """
-AI Agent Daily Digest — Generator
+AI Agent Daily Digest — Generator (v3.0)
 Fetches 3-5 AI agent news articles via RSS, sends them to Gemini for
 English-learner-friendly summaries, maintains a 30-day JSON archive,
 and generates a polished single-page index.html with archive browsing.
+
+Changelog from v2.0:
+- Fixed fallback bug: now always writes fallback HTML when article count < MIN_ARTICLES
+- Added Python-side vocabulary deduplication across articles (not just prompt-level)
+- Removed unused `import sys`
+- Translated all inline comments to English for consistency
 """
 
 import os
-import sys
 import json
 import glob
 import datetime
@@ -20,6 +25,7 @@ import requests
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
 GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-2.5-flash")
 
+# Diverse sources including Hugging Face and MIT Technology Review
 RSS_FEEDS = [
     "https://techcrunch.com/category/artificial-intelligence/feed/",
     "https://www.theverge.com/rss/ai-artificial-intelligence/index.xml",
@@ -27,9 +33,11 @@ RSS_FEEDS = [
     "https://venturebeat.com/category/ai/feed/",
     "https://blog.google/technology/ai/rss/",
     "https://openai.com/blog/rss.xml",
+    "https://huggingface.co/blog/feed.xml",
+    "https://www.technologyreview.com/feed/",
 ]
 
-# AI Agent related keywords for filtering
+# Keywords for filtering AI agent relevance
 AI_AGENT_KEYWORDS = [
     "agent", "agentic", "autonomous", "mcp", "rag", "retrieval",
     "tool use", "function calling", "langchain", "langgraph",
@@ -115,9 +123,8 @@ def fetch_articles() -> list[dict]:
 # ---------------------------------------------------------------------------
 
 SYSTEM_PROMPT = """\
-You are an expert AI technology journalist AND an English teacher. You write
-for readers who are intermediate English learners interested in AI agents,
-LLMs, and data science.
+You are an expert AI technology journalist AND an advanced English teacher. You write
+for readers who are intermediate-to-advanced English learners working as Data Scientists and Software Engineers.
 
 You will receive multiple news articles about AI. For EACH article, produce
 a JSON object. Return a JSON array of objects with this exact structure:
@@ -127,30 +134,28 @@ a JSON object. Return a JSON array of objects with this exact structure:
     "headline": "A clear, engaging headline rewritten in simpler English (max 12 words)",
     "one_liner": "A single-sentence summary of the article in very plain English (max 25 words)",
     "category": "release" | "technical" | "use-case" | "industry" | "research",
-    "detailed_summary": "A 4-6 sentence summary in clear English. Explain technical terms when first used. Cover: what happened, why it matters, and what it means for the AI agent ecosystem.",
+    "detailed_summary": "A 4-6 sentence summary. Focus on technical aspects: architecture, cost, reasoning models, existing comparisons, or practical implementation benefits. Cover: what happened, why it technically matters, and what it means for the AI ecosystem.",
     "vocabulary": [
-      {"term": "a key technical or advanced word from the article", "definition": "a clear English-only definition (1 sentence, under 20 words)", "example": "an example sentence using this word naturally"},
+      {"term": "a key technical or advanced word from the article", "definition": "a clear English-only definition (1 sentence, under 20 words)", "example": "an example sentence using this word naturally in a tech context"},
       {"term": "...", "definition": "...", "example": "..."},
       {"term": "...", "definition": "...", "example": "..."}
     ],
-    "discussion_question": "One thought-provoking question about the topic that encourages critical thinking and English conversation practice."
+    "discussion_question": "One thought-provoking question about the technical or practical implications that encourages critical thinking."
   }
 ]
 
-Rules:
-- Return ONLY a valid JSON array. No markdown fences, no preamble.
-- Each article gets exactly 3 vocabulary items.
-- All definitions and examples must be in English only.
-- Vocabulary should include technical AI terms when relevant.
-- The detailed_summary should be educational — teach the reader something.
-- Categories: "release" for new products/updates, "technical" for how-things-work,
-  "use-case" for applications/case studies, "industry" for business/funding news,
-  "research" for academic papers or breakthroughs.
+CRITICAL RULES:
+1. Return ONLY a valid JSON array. No markdown fences, no preamble.
+2. Each article gets EXACTLY 3 vocabulary items.
+3. VOCABULARY STRICT BAN: You MUST NOT extract basic terms like "AI", "AI agent", "LLM", "Open-source", "Machine Learning", or "Data".
+4. VOCABULARY LEVEL: Choose CEFR B2-C1 level English vocabulary or highly specific technical jargon (e.g., "Orchestration", "Proprietary", "Throughput", "Latency", "Heuristic").
+5. NO DUPLICATES: Across all articles, ensure NO vocabulary words are repeated.
+6. The detailed_summary must appeal to Data Scientists. Do not just say "it's good for AI". Explain *how* or *why* technically.
 """
 
 
 def call_gemini(articles: list[dict]) -> list[dict] | None:
-    """Send articles to Gemini API; return parsed JSON array or None."""
+    """Send articles to Gemini API; return parsed and validated JSON array or None."""
     if not GEMINI_API_KEY:
         print("✖ GEMINI_API_KEY is not set.")
         return None
@@ -175,7 +180,7 @@ def call_gemini(articles: list[dict]) -> list[dict] | None:
                     {"parts": [{"text": SYSTEM_PROMPT + "\n\n" + articles_text}]}
                 ],
                 "generationConfig": {
-                    "temperature": 0.7,
+                    "temperature": 0.5,
                     "responseMimeType": "application/json",
                 },
             },
@@ -187,11 +192,11 @@ def call_gemini(articles: list[dict]) -> list[dict] | None:
         content = result["candidates"][0]["content"]["parts"][0]["text"]
         data = json.loads(content)
 
-        # Validate structure
         if not isinstance(data, list):
             print("✖ LLM returned non-array JSON")
             return None
 
+        # Validate structure
         valid = []
         for item in data:
             if (
@@ -207,6 +212,18 @@ def call_gemini(articles: list[dict]) -> list[dict] | None:
         if not valid:
             print("✖ No valid article summaries in LLM response")
             return None
+
+        # Deduplicate vocabulary terms across all articles on the Python side,
+        # as a safety net in case the LLM ignores the NO DUPLICATES instruction.
+        seen_vocab_terms = set()
+        for item in valid:
+            deduped = []
+            for v in item.get("vocabulary", []):
+                term_key = v.get("term", "").lower().strip()
+                if term_key and term_key not in seen_vocab_terms:
+                    seen_vocab_terms.add(term_key)
+                    deduped.append(v)
+            item["vocabulary"] = deduped
 
         return valid
 
@@ -282,10 +299,8 @@ def cleanup_old_archives():
 def build_html(archives: list[dict]) -> str:
     """Generate the complete single-page application HTML."""
     today = datetime.date.today()
-    today_str = today.strftime("%Y-%m-%d")
     today_display = today.strftime("%B %d, %Y")
 
-    # Serialize archives to JSON for the frontend
     archives_json = json.dumps(archives, ensure_ascii=False)
 
     return f"""\
@@ -847,13 +862,14 @@ def main():
     print("▸ Fetching RSS feeds…")
     articles = fetch_articles()
 
+    # Always write fallback and exit if we don't have enough articles.
+    # Previously, 1-2 articles would silently continue to the Gemini call.
     if len(articles) < MIN_ARTICLES:
-        print(f"✖ Only found {len(articles)} relevant articles (need {MIN_ARTICLES}+).")
-        if not articles:
-            html = build_fallback_html()
-            with open(OUTPUT_FILE, "w", encoding="utf-8") as f:
-                f.write(html)
-            return
+        print(f"✖ Only found {len(articles)} relevant articles (need {MIN_ARTICLES}+). Writing fallback.")
+        html = build_fallback_html()
+        with open(OUTPUT_FILE, "w", encoding="utf-8") as f:
+            f.write(html)
+        return
 
     print(f"▸ Found {len(articles)} articles")
     for a in articles:
@@ -863,7 +879,7 @@ def main():
     digests = call_gemini(articles)
 
     if not digests:
-        print("✖ Gemini did not return valid data.")
+        print("✖ Gemini did not return valid data. Writing fallback.")
         html = build_fallback_html()
         with open(OUTPUT_FILE, "w", encoding="utf-8") as f:
             f.write(html)
