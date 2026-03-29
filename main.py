@@ -1,14 +1,12 @@
-"""
-AI Agent Daily Digest — Generator (v4.0 - Multi-Agent Architecture)
+"""AI Agent Daily Digest — Generator (v5.0 - Multi-Agent, Importance-Aware)
 Pipeline:
-  RSS Fetch (Python)
-    → Agent 1: Curator    — scores all candidate articles (gemini-2.5-flash-lite, 1 call)
-    → Agent 2: Selector   — picks 5 with category balance (gemini-2.5-flash-lite, 1 call)
-    → Agent 3: Summarizer — deep technical summary per article (gemini-2.5-flash, 5 calls)
-    → Agent 4: EnglishCoach — vocab + discussion per article (gemini-2.5-flash, 5 calls)
+  RSS Fetch (Python, source-balanced)
+    → Agent 1: Curator    — importance & impact scoring (gemini-2.5-flash-lite, 1 call)
+    → Agent 2: Selector   — picks top articles for DS team (gemini-2.5-flash-lite, 1 call)
+    → Agent 3: Analyst    — deep summary + practitioner insights (gemini-2.5-flash, 5 calls)
   HTML Build (Python)
 
-Total API calls: ~12  |  Well within Gemini free tier (15 RPM)
+Total API calls: ~7  |  Well within Gemini free tier (15 RPM)
 """
 
 import os
@@ -17,6 +15,7 @@ import glob
 import time
 import datetime
 import re
+import random
 import feedparser
 import requests
 
@@ -42,9 +41,10 @@ RSS_FEEDS = [
     "https://www.technologyreview.com/feed/",
 ]
 
-MAX_CANDIDATES  = 20   # articles fed into Agent 1
+MAX_CANDIDATES  = 30   # articles fed into Agent 1
 TARGET_ARTICLES = 5    # articles selected by Agent 2
 MIN_ARTICLES    = 3    # abort threshold
+MAX_PER_FEED    = 6    # cap per RSS source to ensure diversity
 MAX_ARTICLE_CHARS = 3000
 AGENT_SLEEP_SEC = 5    # pause between heavy agent calls to respect 15 RPM
 
@@ -111,8 +111,8 @@ def parse_json(text: str | None) -> dict | list | None:
 def fetch_candidates() -> list[dict]:
     """
     Fetch up to MAX_CANDIDATES articles from RSS feeds.
-    Light keyword pre-filter keeps obviously unrelated articles out,
-    but threshold is low (score >= 1) — the real curation is Agent 1's job.
+    Shuffles feed order and caps per-feed to ensure source diversity.
+    Light keyword pre-filter keeps obviously unrelated articles out.
     """
     BROAD_KEYWORDS = [
         "ai", "llm", "model", "agent", "openai", "anthropic", "google",
@@ -122,11 +122,18 @@ def fetch_candidates() -> list[dict]:
 
     candidates = []
     seen_titles: set[str] = set()
+    feeds = list(RSS_FEEDS)
+    random.shuffle(feeds)  # avoid same-source bias each run
 
-    for feed_url in RSS_FEEDS:
+    for feed_url in feeds:
+        feed_count = 0
         try:
             feed = feedparser.parse(feed_url)
+            source_name = feed.feed.get("title", feed_url)[:40]
             for entry in feed.entries[:15]:
+                if feed_count >= MAX_PER_FEED:
+                    break
+
                 title = entry.get("title", "").strip()
                 link  = entry.get("link",  "").strip()
                 body  = entry.get("summary") or entry.get("description") or ""
@@ -147,10 +154,12 @@ def fetch_candidates() -> list[dict]:
                 combined = (title + " " + body).lower()
                 if any(kw in combined for kw in BROAD_KEYWORDS):
                     candidates.append({
-                        "title": title,
-                        "link":  link,
-                        "body":  body[:MAX_ARTICLE_CHARS],
+                        "title":  title,
+                        "link":   link,
+                        "body":   body[:MAX_ARTICLE_CHARS],
+                        "source": source_name,
                     })
+                    feed_count += 1
 
                 if len(candidates) >= MAX_CANDIDATES:
                     break
@@ -168,26 +177,42 @@ def fetch_candidates() -> list[dict]:
 # ---------------------------------------------------------------------------
 
 CURATOR_PROMPT = """\
-You are an expert AI news curator. Your audience is Data Scientists and Software Engineers who care about AI agents, LLMs, and the broader AI ecosystem.
+You are an expert AI news curator selecting articles for a Data Science team.
+Your readers are practicing Data Scientists and ML Engineers who build production AI systems.
 
-Score EACH of the following articles on a scale of 1–10 for how relevant, timely, and technically interesting it is for this audience. Be strict — only truly relevant AI/ML content should score above 5.
+Score EACH article on a 1–10 scale using ALL of these dimensions:
 
-For each article, return a JSON object. Return a JSON ARRAY of objects:
+**Impact** (40% weight): How significant is this development?
+  - 9-10: Industry-shifting (new SOTA model, major API change, critical vulnerability)
+  - 7-8: Important for practitioners (new framework, significant benchmark, policy change)
+  - 4-6: Interesting but incremental
+  - 1-3: Hype, repackaged old news, or corporate fluff
+
+**Novelty** (30% weight): Is this genuinely new information?
+  - Heavily penalise articles that rehash known facts, are opinion-only, or just react to older news
+  - Reward articles with original reporting, new data, or first announcements
+
+**Practitioner Value** (30% weight): Will this change how someone builds, deploys, or thinks about AI?
+  - Reward: new tools/APIs, benchmark comparisons, architecture insights, cost/performance data
+  - Penalise: vague future predictions, executive quotes with no substance, marketing pieces
+
+Return a JSON ARRAY of objects:
 [
   {{
     "title": "<exact title as given>",
     "score": <integer 1-10>,
-    "reason": "<one sentence: why this score>",
+    "impact_signal": "<what specifically makes this important or unimportant>",
+    "novelty_check": "<is this genuinely new? why?>",
+    "reason": "<one sentence final verdict>",
     "category_hint": "release" | "technical" | "use-case" | "industry" | "research"
   }}
 ]
 
 Rules:
 - Return ONLY a valid JSON array. No markdown, no preamble.
-- Score 8-10: Major model releases, breakthrough research, key agentic framework updates.
-- Score 5-7: Interesting but not groundbreaking AI industry news.
-- Score 1-4: Tangentially related, business fluff, or non-technical content.
-- Penalise articles that are opinion pieces with no new information.
+- Be ruthlessly honest. Most articles are 4-6. Reserve 8+ for genuinely important developments.
+- If an article is primarily about company strategy, fundraising, or executive opinions without technical substance, score ≤ 4.
+- If multiple articles cover the same event, note this in impact_signal so the selector can deduplicate.
 
 Articles:
 {articles_block}
@@ -199,7 +224,7 @@ def agent_curator(candidates: list[dict]) -> list[dict]:
 
     articles_block = ""
     for i, a in enumerate(candidates, 1):
-        articles_block += f"\n[{i}] Title: {a['title']}\nText: {a['body'][:500]}\n"
+        articles_block += f"\n[{i}] Title: {a['title']}\nSource: {a.get('source', 'unknown')}\nText: {a['body'][:500]}\n"
 
     prompt = CURATOR_PROMPT.format(articles_block=articles_block)
     raw = gemini_call(MODEL_LITE, prompt, temperature=0.2)
@@ -210,13 +235,14 @@ def agent_curator(candidates: list[dict]) -> list[dict]:
         return [{"title": a["title"], "score": 5, "reason": "fallback", "category_hint": "technical"}
                 for a in candidates]
 
-    # Attach original body + link back from candidates by title match
+    # Attach original body + link + source back from candidates by title match
     candidate_map = {a["title"]: a for a in candidates}
     result = []
     for item in scored:
         original = candidate_map.get(item.get("title", ""))
         if original:
-            result.append({**item, "link": original["link"], "body": original["body"]})
+            result.append({**item, "link": original["link"], "body": original["body"],
+                           "source": original.get("source", "unknown")})
 
     print(f"   Scored {len(result)} articles")
     return result
@@ -227,20 +253,22 @@ def agent_curator(candidates: list[dict]) -> list[dict]:
 # ---------------------------------------------------------------------------
 
 SELECTOR_PROMPT = """\
-You are an AI news editor. You have a scored list of articles. Your job is to select exactly {n} articles for today's digest.
+You are the editor of a daily AI digest read by a Data Science team.
+Your goal: select exactly {n} articles that a DS/ML team lead would want their team to read today.
 
-Selection criteria:
-1. Prefer high scores, but DO NOT pick 5 articles of the same category.
-2. Aim for category diversity: ideally a mix of "release", "technical", "research", "use-case", "industry".
-3. If two articles cover the same story, pick the better one only.
-4. Today's digest should feel like a well-rounded view of the AI ecosystem.
+Selection criteria (in priority order):
+1. **Must-know first**: If a genuinely important development happened (score 8+), it MUST be included regardless of category.
+2. **No duplicates**: If multiple articles cover the same story or event, pick ONLY the one with the best original reporting. Never include two articles about the same topic.
+3. **Source diversity**: Avoid selecting 3+ articles from the same publication. Prefer a spread of sources.
+4. **Category balance**: Among the remaining slots, aim for variety (release, technical, research, use-case, industry) — but never sacrifice quality for category balance.
+5. **Actionability**: Prefer articles that give the reader something concrete (a tool to try, an architecture to study, a benchmark to reference) over passive "news" articles.
 
 Return a JSON array of exactly {n} objects:
 [
   {{
     "title": "<exact title>",
     "category": "release" | "technical" | "use-case" | "industry" | "research",
-    "selection_reason": "<one sentence: why this article was chosen>"
+    "selection_reason": "<one sentence: why a DS team should read this>"
   }}
 ]
 
@@ -258,7 +286,8 @@ def agent_selector(scored: list[dict], n: int = TARGET_ARTICLES) -> list[dict]:
 
     scored_block = json.dumps(
         [{"title": s["title"], "score": s.get("score", 5),
-          "reason": s.get("reason", ""), "category_hint": s.get("category_hint", "")}
+          "reason": s.get("reason", ""), "category_hint": s.get("category_hint", ""),
+          "source": s.get("source", "unknown")}
          for s in scored],
         ensure_ascii=False, indent=2
     )
@@ -291,24 +320,29 @@ def agent_selector(scored: list[dict], n: int = TARGET_ARTICLES) -> list[dict]:
 
 
 # ---------------------------------------------------------------------------
-# Agent 3 — Summarizer: deep technical summary per article
+# Agent 3 — Analyst: deep summary + practitioner insights per article
 # ---------------------------------------------------------------------------
 
-SUMMARIZER_PROMPT = """\
-You are a senior AI researcher writing for an audience of Data Scientists and Software Engineers.
+ANALYST_PROMPT = """\
+You are a senior AI/ML practitioner writing an internal briefing for a Data Science team.
+Your readers build production ML systems and need to quickly assess what matters and why.
 
-Produce a deep technical summary of the following article. Your summary must go beyond surface-level reporting.
+Analyze the following article and produce a structured briefing.
 
 Return a single JSON object (NOT an array):
 {{
-  "headline": "A sharp, informative headline (max 12 words, plain English)",
-  "one_liner": "One sentence capturing the core news (max 25 words)",
-  "detailed_summary": "4–6 sentences. Cover: (1) what exactly happened or was released, (2) the technical mechanism or architecture involved, (3) how it compares to existing approaches or benchmarks, (4) concrete implications for practitioners building with AI. Avoid vague praise like 'this is a breakthrough'. Be specific."
+  "headline": "A sharp, informative headline (max 12 words). Front-load the key fact, not the source.",
+  "one_liner": "One sentence capturing the core news. Be specific — include names, numbers, or versions when available. (max 30 words)",
+  "detailed_summary": "4–6 sentences structured as: (1) What exactly happened — state the concrete fact. (2) Technical details — architecture, parameters, benchmarks, API changes, or methodology. (3) Context — how this compares to or builds on existing work. (4) Limitations or caveats the original article mentions or implies. Write in clear, direct English suitable for non-native speakers. Avoid vague praise like 'groundbreaking' or 'revolutionary'. Every sentence must contain a verifiable claim.",
+  "why_it_matters": "2–3 sentences answering: What should a DS/ML practitioner DO with this information? Be concrete — e.g., 'Consider migrating from X to Y if your use case involves Z' or 'Monitor this space; not production-ready yet but the benchmark delta is significant.' Never use generic phrases like 'this is important for the AI community'.",
+  "key_takeaway": "One sentence. The single most important fact or insight a busy engineer should remember from this article. Make it quotable and specific.",
+  "discussion_question": "One thought-provoking question designed to spark a 5-minute team discussion. Focus on practical implications, architectural trade-offs, or strategic decisions — not philosophical musings. Example: 'Should we evaluate X for our Y pipeline given the reported Z% improvement over W?'"
 }}
 
 Rules:
 - Return ONLY a valid JSON object. No markdown, no preamble.
-- The detailed_summary must contain at least one concrete technical detail (e.g., parameter count, benchmark score, architecture name, API change).
+- detailed_summary must contain at least one concrete technical detail (parameter count, benchmark score, architecture name, API change, cost figure).
+- The tone should be analytical, not promotional. Write as a peer, not a journalist.
 - Category context: {category}
 
 Article title: {title}
@@ -316,9 +350,9 @@ Article text:
 {body}
 """
 
-def agent_summarizer(article: dict) -> dict | None:
-    """Agent 3: Generate deep technical summary for one article."""
-    prompt = SUMMARIZER_PROMPT.format(
+def agent_analyst(article: dict) -> dict | None:
+    """Agent 3: Generate deep summary + practitioner insights for one article."""
+    prompt = ANALYST_PROMPT.format(
         category=article.get("category", "technical"),
         title=article["title"],
         body=article["body"],
@@ -327,85 +361,13 @@ def agent_summarizer(article: dict) -> dict | None:
     result = parse_json(raw)
 
     if not isinstance(result, dict):
-        print(f"   ⚠ Summarizer failed for: {article['title'][:60]}")
+        print(f"   ⚠ Analyst failed for: {article['title'][:60]}")
         return None
 
-    required = ("headline", "one_liner", "detailed_summary")
+    required = ("headline", "one_liner", "detailed_summary", "why_it_matters", "key_takeaway")
     if not all(isinstance(result.get(k), str) for k in required):
-        print(f"   ⚠ Summarizer missing fields for: {article['title'][:60]}")
+        print(f"   ⚠ Analyst missing fields for: {article['title'][:60]}")
         return None
-
-    return result
-
-
-# ---------------------------------------------------------------------------
-# Agent 4 — English Coach: vocabulary + discussion per article
-# ---------------------------------------------------------------------------
-
-ENGLISH_COACH_PROMPT = """\
-You are an advanced English teacher specialising in technical vocabulary for non-native speakers working in Data Science and Software Engineering.
-
-You will receive an article and its summary. Generate vocabulary items and a discussion question.
-
-Return a single JSON object (NOT an array):
-{{
-  "vocabulary": [
-    {{
-      "term": "a specific technical or advanced English word",
-      "definition": "clear English-only definition, 1 sentence, under 20 words",
-      "example": "natural example sentence using this term in a tech/DS context"
-    }},
-    {{ ... }},
-    {{ ... }}
-  ],
-  "discussion_question": "One thought-provoking question about the technical or ethical implications of this article. Encourage critical thinking, not just comprehension."
-}}
-
-CRITICAL RULES:
-1. Return ONLY a valid JSON object. No markdown, no preamble.
-2. Exactly 3 vocabulary items.
-3. BANNED basic terms (do NOT use these): "AI", "LLM", "agent", "open-source", "machine learning", "data", "model", "tool", "system", "feature".
-4. CEFR level: B2–C1 or domain-specific jargon (e.g., "amortise", "inference", "proprietary", "idempotent", "throughput", "heuristic", "ablation").
-5. FORBIDDEN terms already used today: {used_terms_list}
-   — If a term appears in this list, skip it entirely and choose a different word.
-6. The discussion question must be specific to this article, not generic.
-
-Article title: {title}
-Article summary: {summary}
-Article text (for vocabulary mining):
-{body}
-"""
-
-def agent_english_coach(article: dict, summary: dict, used_terms: set[str]) -> dict | None:
-    """Agent 4: Generate vocabulary + discussion question for one article."""
-    used_terms_list = ", ".join(sorted(used_terms)) if used_terms else "none yet"
-
-    prompt = ENGLISH_COACH_PROMPT.format(
-        used_terms_list=used_terms_list,
-        title=article["title"],
-        summary=article.get("detailed_summary", ""),
-        body=article["body"],
-    )
-    raw = gemini_call(MODEL_HEAVY, prompt, temperature=0.6)
-    result = parse_json(raw)
-
-    if not isinstance(result, dict):
-        print(f"   ⚠ EnglishCoach failed for: {article['title'][:60]}")
-        return None
-
-    vocab = result.get("vocabulary", [])
-    if not isinstance(vocab, list) or len(vocab) < 2:
-        print(f"   ⚠ EnglishCoach insufficient vocab for: {article['title'][:60]}")
-        return None
-
-    # Enforce deduplication on Python side as a safety net
-    deduped = []
-    for v in vocab:
-        term_key = v.get("term", "").lower().strip()
-        if term_key and term_key not in used_terms:
-            used_terms.add(term_key)
-            deduped.append(v)
-    result["vocabulary"] = deduped
 
     return result
 
@@ -464,7 +426,7 @@ def build_html(archives: list[dict]) -> str:
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
 <title>AI Agent Daily Digest</title>
-<meta name="description" content="Daily AI agent news digest for English learners — releases, technical deep-dives, and use cases."/>
+<meta name="description" content="Daily AI digest for Data Science teams — curated articles with practitioner insights, key takeaways, and discussion prompts."/>
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
 <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif&family=DM+Sans:ital,wght@0,400;0,500;0,600;1,400&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"/>
@@ -529,12 +491,9 @@ header {{ padding:3rem 0 2rem; border-bottom:1px solid var(--border); margin-bot
 .detail-section {{ margin-top:1.25rem; }}
 .detail-section h3 {{ font-size:0.7rem; font-weight:600; text-transform:uppercase; letter-spacing:0.08em; color:var(--text-muted); margin-bottom:0.6rem; }}
 .detail-summary {{ font-size:0.95rem; color:var(--text); line-height:1.8; }}
-.vocab-list {{ display:flex; flex-direction:column; gap:0.75rem; }}
-.vocab-item {{ background:var(--bg); border-radius:var(--radius-sm); padding:0.85rem 1rem; }}
-.vocab-term {{ font-family:var(--font-mono); font-size:0.85rem; font-weight:500; color:var(--accent); }}
-.vocab-def {{ font-size:0.85rem; color:var(--text-secondary); margin-top:0.2rem; }}
-.vocab-example {{ font-size:0.82rem; color:var(--text-muted); font-style:italic; margin-top:0.25rem; }}
-.discussion-box {{ background:var(--accent-dim); border:1px solid var(--accent-mid); border-radius:var(--radius-sm); padding:1rem; font-size:0.9rem; color:var(--accent); line-height:1.6; }}
+.why-box {{ background:var(--bg); border-left:3px solid var(--accent); border-radius:var(--radius-sm); padding:0.85rem 1rem; font-size:0.9rem; color:var(--text); line-height:1.7; }}
+.takeaway-box {{ background:var(--accent-dim); border-radius:var(--radius-sm); padding:0.75rem 1rem; font-size:0.9rem; font-weight:500; color:var(--accent); line-height:1.5; }}
+.discussion-box {{ background:var(--surface-hover); border:1px solid var(--border-light); border-radius:var(--radius-sm); padding:1rem; font-size:0.9rem; color:var(--text-secondary); line-height:1.6; font-style:italic; }}
 .source-link {{ display:inline-flex; align-items:center; gap:0.3rem; font-size:0.8rem; color:var(--text-muted); text-decoration:none; margin-top:1rem; transition:color 0.15s; }}
 .source-link:hover {{ color:var(--accent); }}
 
@@ -566,7 +525,7 @@ footer {{ border-top:1px solid var(--border); margin-top:3rem; padding:1.5rem 0 
     <div class="header-top">
       <div class="brand">
         <h1>AI Agent <span>Daily Digest</span></h1>
-        <p>Sharpen your English while staying ahead of the AI agent revolution.</p>
+        <p>Curated AI insights for Data Science teams — read, discuss, stay sharp.</p>
       </div>
       <div class="date-nav">
         <button id="prev-btn" onclick="navDate(-1)" title="Previous day">&#8249;</button>
@@ -623,12 +582,6 @@ function renderDay(index) {{
   container.innerHTML = data.articles.map((article, i) => {{
     const cat = article.category||'technical';
     const m   = categoryMeta[cat]||categoryMeta['technical'];
-    const vocabHtml = (article.vocabulary||[]).map(v =>
-      `<div class="vocab-item">
-        <div class="vocab-term">${{esc(v.term)}}</div>
-        <div class="vocab-def">${{esc(v.definition)}}</div>
-        ${{v.example?`<div class="vocab-example">"${{esc(v.example)}}"</div>`:''}}
-      </div>`).join('');
     return `<div class="card" id="card-${{i}}">
       <div class="card-header" onclick="toggleCard(${{i}})">
         <span class="card-num">${{String(i+1).padStart(2,'0')}}</span>
@@ -648,14 +601,18 @@ function renderDay(index) {{
           <h3>Summary</h3>
           <div class="detail-summary">${{esc(article.detailed_summary)}}</div>
         </div>
-        <div class="detail-section">
-          <h3>Vocabulary</h3>
-          <div class="vocab-list">${{vocabHtml}}</div>
-        </div>
-        <div class="detail-section">
-          <h3>Discussion</h3>
+        ${{article.why_it_matters?`<div class="detail-section">
+          <h3>Why It Matters</h3>
+          <div class="why-box">${{esc(article.why_it_matters)}}</div>
+        </div>`:''}}
+        ${{article.key_takeaway?`<div class="detail-section">
+          <h3>Key Takeaway</h3>
+          <div class="takeaway-box">${{esc(article.key_takeaway)}}</div>
+        </div>`:''}}
+        ${{article.discussion_question?`<div class="detail-section">
+          <h3>Team Discussion</h3>
           <div class="discussion-box">${{esc(article.discussion_question)}}</div>
-        </div>
+        </div>`:''}}
         ${{article.source_url?`<a class="source-link" href="${{esc(article.source_url)}}" target="_blank" rel="noopener">Read original article &#8599;</a>`:''}}
       </div></div>
     </div>`;
@@ -745,36 +702,29 @@ def main():
 
     time.sleep(AGENT_SLEEP_SEC)
 
-    # --- Agents 3 & 4: Summarizer + English Coach (per article) ---
-    used_vocab_terms: set[str] = set()
+    # --- Agent 3: Analyst (per article) ---
     final_articles = []
 
     for i, article in enumerate(selected):
         print(f"▸ Processing article {i+1}/{len(selected)}: {article['title'][:60]}…")
 
-        # Agent 3: Summarizer
-        summary = agent_summarizer(article)
-        if not summary:
-            print(f"   Skipping article {i+1} — summarizer failed.")
+        # Agent 3: Analyst — summary + insights + discussion
+        analysis = agent_analyst(article)
+        if not analysis:
+            print(f"   Skipping article {i+1} — analyst failed.")
             time.sleep(AGENT_SLEEP_SEC)
             continue
 
-        time.sleep(AGENT_SLEEP_SEC)
-
-        # Agent 4: English Coach
-        # Pass the generated summary so vocab is grounded in the actual summary text
-        article_with_summary = {**article, "detailed_summary": summary["detailed_summary"]}
-        coaching = agent_english_coach(article_with_summary, summary, used_vocab_terms)
-
         final_article = {
-            "headline":           summary.get("headline", article["title"]),
-            "one_liner":          summary.get("one_liner", ""),
-            "detailed_summary":   summary.get("detailed_summary", ""),
-            "category":           article.get("category", "technical"),
-            "vocabulary":         coaching.get("vocabulary", []) if coaching else [],
-            "discussion_question": coaching.get("discussion_question", "") if coaching else "",
-            "source_url":         article.get("link", ""),
-            "source_title":       article.get("title", ""),
+            "headline":            analysis.get("headline", article["title"]),
+            "one_liner":           analysis.get("one_liner", ""),
+            "detailed_summary":    analysis.get("detailed_summary", ""),
+            "why_it_matters":      analysis.get("why_it_matters", ""),
+            "key_takeaway":        analysis.get("key_takeaway", ""),
+            "category":            article.get("category", "technical"),
+            "discussion_question": analysis.get("discussion_question", ""),
+            "source_url":          article.get("link", ""),
+            "source_title":        article.get("title", ""),
         }
         final_articles.append(final_article)
 
