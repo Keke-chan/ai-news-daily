@@ -174,12 +174,12 @@ Score EACH of the following articles on a scale of 1–10 for how relevant, time
 
 For each article, return a JSON object. Return a JSON ARRAY of objects:
 [
-  {
+  {{
     "title": "<exact title as given>",
     "score": <integer 1-10>,
     "reason": "<one sentence: why this score>",
     "category_hint": "release" | "technical" | "use-case" | "industry" | "research"
-  }
+  }}
 ]
 
 Rules:
