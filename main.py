@@ -18,7 +18,7 @@ import requests
 # Configuration
 # ---------------------------------------------------------------------------
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
-GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-2.0-flash")
+GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-2.5-flash")
 
 RSS_FEEDS = [
     "https://techcrunch.com/category/artificial-intelligence/feed/",
