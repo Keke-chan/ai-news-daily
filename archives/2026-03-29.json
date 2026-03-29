@@ -1,0 +1,135 @@
+{
+  "date": "2026-03-29",
+  "articles": [
+    {
+      "headline": "Free Goose AI Tool Challenges Pricey Claude Code for Developers",
+      "one_liner": "A new free, open-source AI tool called Goose is becoming popular among developers who find Anthropic's Claude Code too expensive.",
+      "category": "release",
+      "detailed_summary": "This article discusses Goose, a new open-source AI agent that helps developers write and debug code. It's a free alternative to Anthropic's expensive Claude Code, which has frustrated users with its high prices and strict usage limits. Goose runs locally on a user's computer, meaning no subscription fees or cloud dependency, and keeps data private. This development is important for the AI agent ecosystem because it offers developers a powerful, free, and private option, increasing competition and choice beyond commercial tools. It highlights a growing demand for accessible AI tools.",
+      "vocabulary": [
+        {
+          "term": "AI agent",
+          "definition": "An AI program that can act independently to achieve specific goals.",
+          "example": "The AI agent successfully automated the data entry process for the company."
+        },
+        {
+          "term": "Open-source",
+          "definition": "Software whose original source code is freely available for anyone to use and modify.",
+          "example": "Linux is a well-known example of an open-source operating system."
+        },
+        {
+          "term": "Local machine",
+          "definition": "A computer that a user directly uses, rather than a remote server or cloud service.",
+          "example": "Many developers prefer to run their tools on a local machine for better control."
+        }
+      ],
+      "discussion_question": "What are the main benefits and drawbacks for developers choosing between a paid cloud-based AI agent and a free, local open-source one?",
+      "source_url": "https://venturebeat.com/infrastructure/claude-code-costs-up-to-usd200-a-month-goose-does-the-same-thing-for-free",
+      "source_title": "Claude Code costs up to $200 a month. Goose does the same thing for free."
+    },
+    {
+      "headline": "Salesforce Launches Powerful New Slackbot AI Agent for Workplaces",
+      "one_liner": "Salesforce has updated Slackbot into a powerful AI agent that helps employees with tasks, competing with other big tech companies.",
+      "category": "release",
+      "detailed_summary": "Salesforce has launched a completely redesigned Slackbot, transforming it from a simple notification tool into a full AI agent. This new version can search company data, write documents, and perform actions for employees. It uses a Large Language Model (LLM), which is an AI model trained on vast amounts of text to understand and generate human-like language. The move aims to position Slack at the center of \"agentic AI,\" where AI software helps humans with complex tasks. This is significant for the AI agent ecosystem as it shows major companies integrating advanced AI agents into widely used business platforms, increasing their presence and utility in daily work.",
+      "vocabulary": [
+        {
+          "term": "AI agent",
+          "definition": "An artificial intelligence program designed to act autonomously to achieve specific goals.",
+          "example": "The new AI agent can schedule meetings and send reminders automatically."
+        },
+        {
+          "term": "Large Language Model (LLM)",
+          "definition": "An advanced AI model trained on huge text data to understand and generate human language.",
+          "example": "ChatGPT is powered by a large language model that can write poems and code."
+        },
+        {
+          "term": "Agentic AI",
+          "definition": "A type of AI where software agents work independently to complete complex tasks for humans.",
+          "example": "Agentic AI is helping businesses automate customer service interactions more effectively."
+        }
+      ],
+      "discussion_question": "How might advanced AI agents like the new Slackbot change how people collaborate and get work done in a typical office environment?",
+      "source_url": "https://venturebeat.com/technology/salesforce-rolls-out-new-slackbot-ai-agent-as-it-battles-microsoft-and",
+      "source_title": "Salesforce rolls out new Slackbot AI agent as it battles Microsoft and Google in workplace AI"
+    },
+    {
+      "headline": "Anthropic Launches Cowork: A Desktop AI Agent for Non-Technical Tasks",
+      "one_liner": "Anthropic released Cowork, a new AI agent for its Claude Max users that helps with non-coding tasks directly on your computer.",
+      "category": "release",
+      "detailed_summary": "Anthropic has launched Cowork, a new AI agent feature for its Claude Max subscribers that extends its Claude Code tool to non-technical users. Cowork allows users to perform tasks like organizing files or creating reports directly on their desktop, without needing to code. This innovation came from observing developers using Claude Code for non-programming tasks, showing a wider demand for versatile AI agents. For the AI agent ecosystem, Cowork represents a significant step towards making powerful AI agents accessible to a broader audience beyond just developers, competing with other productivity tools and expanding AI's practical applications.",
+      "vocabulary": [
+        {
+          "term": "AI agent",
+          "definition": "A computer program that performs tasks independently, often learning from its environment.",
+          "example": "The AI agent helped me sort through hundreds of emails in minutes."
+        },
+        {
+          "term": "Non-technical users",
+          "definition": "People who do not have specialized knowledge or skills in computer science or programming.",
+          "example": "The software was designed to be user-friendly for non-technical users."
+        },
+        {
+          "term": "Productivity tools",
+          "definition": "Software or applications designed to help users complete tasks more efficiently and effectively.",
+          "example": "Spreadsheets and word processors are common productivity tools used daily."
+        }
+      ],
+      "discussion_question": "How could AI agents like Cowork change the way everyday users interact with their computers and manage their personal or work files?",
+      "source_url": "https://venturebeat.com/technology/anthropic-launches-cowork-a-claude-desktop-agent-that-works-in-your-files-no",
+      "source_title": "Anthropic launches Cowork, a Claude Desktop agent that works in your files — no coding required"
+    },
+    {
+      "headline": "Nous Research Unveils Free Open-Source AI Coding Model, NousCoder-14B",
+      "one_liner": "Nous Research launched NousCoder-14B, a new open-source AI model for coding that competes with larger, proprietary systems.",
+      "category": "research",
+      "detailed_summary": "Nous Research, an open-source AI startup, has released NousCoder-14B, a new AI model for competitive programming. This model, trained quickly with advanced hardware, performs as well as or better than some larger commercial systems. \"Open-source\" means its code is freely available, allowing others to use and improve it. It arrives as Anthropic's Claude Code has gained attention, showing the rapid development in AI-assisted coding. This is important for the AI agent ecosystem because it offers a powerful, transparent alternative to proprietary tools, fostering innovation and making advanced coding AI more accessible to researchers and developers worldwide.",
+      "vocabulary": [
+        {
+          "term": "Open-source",
+          "definition": "Software with code that is freely available for anyone to view, use, and modify.",
+          "example": "The community collaborated to improve the open-source software."
+        },
+        {
+          "term": "Proprietary systems",
+          "definition": "Software or technology owned by a company, not freely available or modifiable by others.",
+          "example": "Many companies rely on proprietary systems for their core business operations."
+        },
+        {
+          "term": "Benchmark",
+          "definition": "A standard test used to compare the performance of different systems or models.",
+          "example": "We ran a benchmark test to see which computer performed best."
+        }
+      ],
+      "discussion_question": "What are the advantages of open-source AI coding models like NousCoder-14B compared to proprietary ones for the future of software development?",
+      "source_url": "https://venturebeat.com/technology/nous-researchs-nouscoder-14b-is-an-open-source-coding-model-landing-right-in",
+      "source_title": "Nous Research's NousCoder-14B is an open-source coding model landing right in the Claude Code moment"
+    },
+    {
+      "headline": "Claude Code Creator Shares Workflow: Running Multiple AI Agents for Coding",
+      "one_liner": "The creator of Claude Code revealed his workflow, which involves using five AI agents simultaneously, greatly boosting productivity.",
+      "category": "technical",
+      "detailed_summary": "Boris Cherny, the creator of Anthropic's Claude Code, has shared his unique workflow for software development, which involves running multiple AI agents in parallel. Instead of traditional linear coding, he manages five Claude agents in his terminal and more in his browser, acting like a \"fleet commander.\" This approach allows him to achieve the output of a small engineering team by having agents work on different tasks simultaneously. He also surprisingly uses Anthropic's slowest but smartest model, Opus 4.5. This workflow demonstrates how orchestrating AI agents can lead to significant productivity gains, showing a new direction for the AI agent ecosystem where efficiency comes from smart management rather than just raw computing power.",
+      "vocabulary": [
+        {
+          "term": "Workflow",
+          "definition": "The sequence of steps or tasks needed to complete a process or job.",
+          "example": "We need to optimize our workflow to improve efficiency in the office."
+        },
+        {
+          "term": "AI agent",
+          "definition": "An artificial intelligence program that can act independently to achieve specific goals.",
+          "example": "The AI agent helped me manage my calendar and email efficiently."
+        },
+        {
+          "term": "Orchestration",
+          "definition": "The automated arrangement, coordination, and management of complex computer systems or services.",
+          "example": "Cloud orchestration tools help manage many virtual servers at once."
+        }
+      ],
+      "discussion_question": "How might managing multiple AI agents at once, as described by Claude Code's creator, change the role of human programmers in the future?",
+      "source_url": "https://venturebeat.com/technology/the-creator-of-claude-code-just-revealed-his-workflow-and-developers-are",
+      "source_title": "The creator of Claude Code just revealed his workflow, and developers are losing their minds"
+    }
+  ]
+}
