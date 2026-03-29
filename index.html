@@ -4,347 +4,96 @@
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
 <title>AI Agent Daily Digest</title>
-<meta name="description" content="Daily AI agent news digest for English learners — releases, technical deep-dives, and use cases."/>
+<meta name="description" content="Daily AI digest for Data Science teams — curated articles with practitioner insights, key takeaways, and discussion prompts."/>
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
 <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif&family=DM+Sans:ital,wght@0,400;0,500;0,600;1,400&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"/>
 <style>
 :root {
-  --bg: #0c0c0e;
-  --surface: #16161a;
-  --surface-hover: #1c1c22;
-  --surface-active: #222228;
-  --border: #2a2a32;
-  --border-light: #35353f;
-  --text: #e8e6e3;
-  --text-secondary: #9a9a9a;
-  --text-muted: #6a6a72;
-  --accent: #6ee7b7;
-  --accent-dim: #34d3991a;
-  --accent-mid: #34d39940;
-  --release: #818cf8;
-  --release-bg: #818cf815;
-  --technical: #f97316;
-  --technical-bg: #f9731615;
-  --usecase: #06b6d4;
-  --usecase-bg: #06b6d415;
-  --industry: #f472b6;
-  --industry-bg: #f472b615;
-  --research: #a78bfa;
-  --research-bg: #a78bfa15;
+  --bg: #0c0c0e; --surface: #16161a; --surface-hover: #1c1c22;
+  --border: #2a2a32; --border-light: #35353f;
+  --text: #e8e6e3; --text-secondary: #9a9a9a; --text-muted: #6a6a72;
+  --accent: #6ee7b7; --accent-dim: #34d3991a; --accent-mid: #34d39940;
+  --release: #818cf8;  --release-bg: #818cf815;
+  --technical: #f97316; --technical-bg: #f9731615;
+  --usecase: #06b6d4;  --usecase-bg: #06b6d415;
+  --industry: #f472b6; --industry-bg: #f472b615;
+  --research: #a78bfa; --research-bg: #a78bfa15;
   --font-display: 'Instrument Serif', serif;
   --font-body: 'DM Sans', system-ui, sans-serif;
   --font-mono: 'JetBrains Mono', monospace;
-  --radius: 12px;
-  --radius-sm: 8px;
+  --radius: 12px; --radius-sm: 8px;
 }
-*,*::before,*::after { margin:0;padding:0;box-sizing:border-box; }
+*,*::before,*::after { margin:0; padding:0; box-sizing:border-box; }
 html { scroll-behavior:smooth; }
-body {
-  font-family: var(--font-body);
-  background: var(--bg);
-  color: var(--text);
-  line-height: 1.65;
-  -webkit-font-smoothing: antialiased;
-}
-::selection { background: var(--accent-mid); color: var(--text); }
+body { font-family:var(--font-body); background:var(--bg); color:var(--text); line-height:1.65; -webkit-font-smoothing:antialiased; }
+::selection { background:var(--accent-mid); color:var(--text); }
+.wrapper { max-width:720px; margin:0 auto; padding:0 1.25rem; }
 
-.wrapper { max-width: 720px; margin: 0 auto; padding: 0 1.25rem; }
+header { padding:3rem 0 2rem; border-bottom:1px solid var(--border); margin-bottom:2rem; }
+.header-top { display:flex; align-items:flex-start; justify-content:space-between; gap:1rem; flex-wrap:wrap; }
+.brand h1 { font-family:var(--font-display); font-size:clamp(1.8rem,5vw,2.6rem); font-weight:400; letter-spacing:-0.02em; line-height:1.1; }
+.brand h1 span { color:var(--accent); }
+.brand p { font-size:0.875rem; color:var(--text-secondary); margin-top:0.4rem; max-width:360px; }
+.date-nav { display:flex; align-items:center; gap:0.5rem; margin-top:0.25rem; }
+.date-nav button { background:var(--surface); border:1px solid var(--border); color:var(--text-secondary); width:32px; height:32px; border-radius:50%; cursor:pointer; font-size:0.9rem; display:flex; align-items:center; justify-content:center; transition:all 0.15s; }
+.date-nav button:hover { background:var(--surface-hover); color:var(--text); }
+.date-nav button:disabled { opacity:0.3; cursor:default; }
+.date-label { font-family:var(--font-mono); font-size:0.8rem; color:var(--text-secondary); min-width:130px; text-align:center; }
+.stats { display:flex; gap:0.75rem; margin-top:1.25rem; flex-wrap:wrap; }
+.stat-pill { display:inline-flex; align-items:center; gap:0.35rem; padding:0.3rem 0.7rem; border-radius:50px; font-size:0.75rem; font-weight:500; letter-spacing:0.02em; }
+.cat-release { background:var(--release-bg); color:var(--release); }
+.cat-technical { background:var(--technical-bg); color:var(--technical); }
+.cat-use-case { background:var(--usecase-bg); color:var(--usecase); }
+.cat-industry { background:var(--industry-bg); color:var(--industry); }
+.cat-research { background:var(--research-bg); color:var(--research); }
+.cat-dot { width:6px; height:6px; border-radius:50%; background:currentColor; }
 
-header {
-  padding: 3rem 0 2rem;
-  border-bottom: 1px solid var(--border);
-  margin-bottom: 2rem;
-}
-.header-top {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 1rem;
-  flex-wrap: wrap;
-}
-.brand h1 {
-  font-family: var(--font-display);
-  font-size: clamp(1.8rem, 5vw, 2.6rem);
-  font-weight: 400;
-  letter-spacing: -0.02em;
-  line-height: 1.1;
-  color: var(--text);
-}
-.brand h1 span { color: var(--accent); }
-.brand p {
-  font-size: 0.875rem;
-  color: var(--text-secondary);
-  margin-top: 0.4rem;
-  max-width: 360px;
-}
-.date-nav {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  margin-top: 0.25rem;
-}
-.date-nav button {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  color: var(--text-secondary);
-  width: 32px; height: 32px;
-  border-radius: 50%;
-  cursor: pointer;
-  font-size: 0.9rem;
-  display: flex; align-items: center; justify-content: center;
-  transition: all 0.15s;
-}
-.date-nav button:hover { background: var(--surface-hover); color: var(--text); }
-.date-nav button:disabled { opacity: 0.3; cursor: default; }
-.date-label {
-  font-family: var(--font-mono);
-  font-size: 0.8rem;
-  color: var(--text-secondary);
-  min-width: 130px;
-  text-align: center;
-}
+.articles { display:flex; flex-direction:column; gap:1rem; }
+.card { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); overflow:hidden; transition:border-color 0.2s; animation:fadeUp 0.4s ease both; }
+.card:hover { border-color:var(--border-light); }
+.card:nth-child(1) { animation-delay:0.05s; } .card:nth-child(2) { animation-delay:0.1s; }
+.card:nth-child(3) { animation-delay:0.15s; } .card:nth-child(4) { animation-delay:0.2s; }
+.card:nth-child(5) { animation-delay:0.25s; }
+.card-header { padding:1.25rem 1.5rem; cursor:pointer; display:flex; gap:1rem; align-items:flex-start; user-select:none; }
+.card-num { font-family:var(--font-mono); font-size:0.7rem; color:var(--text-muted); background:var(--bg); width:28px; height:28px; border-radius:50%; display:flex; align-items:center; justify-content:center; flex-shrink:0; margin-top:2px; }
+.card-main { flex:1; min-width:0; }
+.card-headline { font-family:var(--font-display); font-size:1.2rem; font-weight:400; line-height:1.3; margin-bottom:0.35rem; }
+.card-oneliner { font-size:0.9rem; color:var(--text-secondary); line-height:1.5; }
+.card-meta { display:flex; align-items:center; gap:0.6rem; margin-top:0.6rem; }
+.expand-icon { color:var(--text-muted); font-size:1rem; transition:transform 0.25s; flex-shrink:0; margin-top:2px; }
+.card.open .expand-icon { transform:rotate(180deg); }
+.card-detail { max-height:0; overflow:hidden; transition:max-height 0.4s ease; }
+.card.open .card-detail { max-height:1400px; }
+.detail-inner { padding:0 1.5rem 1.5rem; padding-left:calc(1.5rem + 28px + 1rem); border-top:1px solid var(--border); }
+.detail-section { margin-top:1.25rem; }
+.detail-section h3 { font-size:0.7rem; font-weight:600; text-transform:uppercase; letter-spacing:0.08em; color:var(--text-muted); margin-bottom:0.6rem; }
+.detail-summary { font-size:0.95rem; color:var(--text); line-height:1.8; }
+.why-box { background:var(--bg); border-left:3px solid var(--accent); border-radius:var(--radius-sm); padding:0.85rem 1rem; font-size:0.9rem; color:var(--text); line-height:1.7; }
+.takeaway-box { background:var(--accent-dim); border-radius:var(--radius-sm); padding:0.75rem 1rem; font-size:0.9rem; font-weight:500; color:var(--accent); line-height:1.5; }
+.discussion-box { background:var(--surface-hover); border:1px solid var(--border-light); border-radius:var(--radius-sm); padding:1rem; font-size:0.9rem; color:var(--text-secondary); line-height:1.6; font-style:italic; }
+.source-link { display:inline-flex; align-items:center; gap:0.3rem; font-size:0.8rem; color:var(--text-muted); text-decoration:none; margin-top:1rem; transition:color 0.15s; }
+.source-link:hover { color:var(--accent); }
 
-.stats {
-  display: flex;
-  gap: 0.75rem;
-  margin-top: 1.25rem;
-  flex-wrap: wrap;
-}
-.stat-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  padding: 0.3rem 0.7rem;
-  border-radius: 50px;
-  font-size: 0.75rem;
-  font-weight: 500;
-  letter-spacing: 0.02em;
-}
-.cat-release { background: var(--release-bg); color: var(--release); }
-.cat-technical { background: var(--technical-bg); color: var(--technical); }
-.cat-use-case { background: var(--usecase-bg); color: var(--usecase); }
-.cat-industry { background: var(--industry-bg); color: var(--industry); }
-.cat-research { background: var(--research-bg); color: var(--research); }
-.cat-dot {
-  width: 6px; height: 6px;
-  border-radius: 50%;
-  background: currentColor;
-}
-
-.articles { display: flex; flex-direction: column; gap: 1rem; }
-.card {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  overflow: hidden;
-  transition: border-color 0.2s;
-}
-.card:hover { border-color: var(--border-light); }
-.card-header {
-  padding: 1.25rem 1.5rem;
-  cursor: pointer;
-  display: flex;
-  gap: 1rem;
-  align-items: flex-start;
-  user-select: none;
-}
-.card-num {
-  font-family: var(--font-mono);
-  font-size: 0.7rem;
-  color: var(--text-muted);
-  background: var(--bg);
-  width: 28px; height: 28px;
-  border-radius: 50%;
-  display: flex; align-items: center; justify-content: center;
-  flex-shrink: 0;
-  margin-top: 2px;
-}
-.card-main { flex: 1; min-width: 0; }
-.card-headline {
-  font-family: var(--font-display);
-  font-size: 1.2rem;
-  font-weight: 400;
-  line-height: 1.3;
-  margin-bottom: 0.35rem;
-}
-.card-oneliner {
-  font-size: 0.9rem;
-  color: var(--text-secondary);
-  line-height: 1.5;
-}
-.card-meta {
-  display: flex;
-  align-items: center;
-  gap: 0.6rem;
-  margin-top: 0.6rem;
-}
-.expand-icon {
-  color: var(--text-muted);
-  font-size: 1rem;
-  transition: transform 0.25s;
-  flex-shrink: 0;
-  margin-top: 2px;
-}
-.card.open .expand-icon { transform: rotate(180deg); }
-
-.card-detail {
-  max-height: 0;
-  overflow: hidden;
-  transition: max-height 0.35s ease;
-}
-.card.open .card-detail { max-height: 1200px; }
-.detail-inner {
-  padding: 0 1.5rem 1.5rem;
-  padding-left: calc(1.5rem + 28px + 1rem);
-  border-top: 1px solid var(--border);
-}
-.detail-section { margin-top: 1.25rem; }
-.detail-section h3 {
-  font-size: 0.7rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--text-muted);
-  margin-bottom: 0.6rem;
-}
-.detail-summary {
-  font-size: 0.95rem;
-  color: var(--text);
-  line-height: 1.75;
-}
-.vocab-list { display: flex; flex-direction: column; gap: 0.75rem; }
-.vocab-item {
-  background: var(--bg);
-  border-radius: var(--radius-sm);
-  padding: 0.85rem 1rem;
-}
-.vocab-term {
-  font-family: var(--font-mono);
-  font-size: 0.85rem;
-  font-weight: 500;
-  color: var(--accent);
-}
-.vocab-def {
-  font-size: 0.85rem;
-  color: var(--text-secondary);
-  margin-top: 0.2rem;
-}
-.vocab-example {
-  font-size: 0.82rem;
-  color: var(--text-muted);
-  font-style: italic;
-  margin-top: 0.25rem;
-}
-.discussion-box {
-  background: var(--accent-dim);
-  border: 1px solid var(--accent-mid);
-  border-radius: var(--radius-sm);
-  padding: 1rem;
-  font-size: 0.9rem;
-  color: var(--accent);
-  line-height: 1.6;
-}
-.source-link {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.3rem;
-  font-size: 0.8rem;
-  color: var(--text-muted);
-  text-decoration: none;
-  margin-top: 1rem;
-  transition: color 0.15s;
-}
-.source-link:hover { color: var(--accent); }
-
-.archive-toggle {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  color: var(--text-secondary);
-  font-family: var(--font-body);
-  font-size: 0.8rem;
-  padding: 0.45rem 1rem;
-  border-radius: 50px;
-  cursor: pointer;
-  transition: all 0.15s;
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
-  margin: 2rem auto 0;
-}
-.archive-toggle:hover { background: var(--surface-hover); color: var(--text); }
-.archive-list {
-  display: none;
-  margin-top: 1rem;
-  padding-bottom: 2rem;
-}
-.archive-list.show { display: block; }
-.archive-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-  gap: 0.5rem;
-}
-.archive-item {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  padding: 0.65rem 0.8rem;
-  cursor: pointer;
-  transition: all 0.15s;
-  text-align: center;
-}
-.archive-item:hover { background: var(--surface-hover); border-color: var(--border-light); }
-.archive-item.active { border-color: var(--accent); background: var(--accent-dim); }
-.archive-date {
-  font-family: var(--font-mono);
-  font-size: 0.75rem;
-  color: var(--text-secondary);
-}
-.archive-count {
-  font-size: 0.7rem;
-  color: var(--text-muted);
-  margin-top: 0.15rem;
-}
-
-.empty-state {
-  text-align: center;
-  padding: 4rem 1rem;
-  color: var(--text-muted);
-}
-.empty-state h2 {
-  font-family: var(--font-display);
-  font-size: 1.4rem;
-  color: var(--text-secondary);
-  margin-bottom: 0.5rem;
-}
-
-footer {
-  border-top: 1px solid var(--border);
-  margin-top: 3rem;
-  padding: 1.5rem 0 2rem;
-  text-align: center;
-  font-size: 0.75rem;
-  color: var(--text-muted);
-}
-
-@keyframes fadeUp {
-  from { opacity: 0; transform: translateY(12px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-.card {
-  animation: fadeUp 0.4s ease both;
-}
-.card:nth-child(1) { animation-delay: 0.05s; }
-.card:nth-child(2) { animation-delay: 0.1s; }
-.card:nth-child(3) { animation-delay: 0.15s; }
-.card:nth-child(4) { animation-delay: 0.2s; }
-.card:nth-child(5) { animation-delay: 0.25s; }
-
-@media (max-width: 540px) {
-  header { padding: 2rem 0 1.5rem; }
-  .detail-inner { padding-left: 1.25rem; padding-right: 1.25rem; }
-  .card-header { padding: 1rem 1.15rem; }
-  .card-num { display: none; }
+.archive-toggle { background:var(--surface); border:1px solid var(--border); color:var(--text-secondary); font-family:var(--font-body); font-size:0.8rem; padding:0.45rem 1rem; border-radius:50px; cursor:pointer; transition:all 0.15s; display:flex; align-items:center; gap:0.4rem; margin:2rem auto 0; }
+.archive-toggle:hover { background:var(--surface-hover); color:var(--text); }
+.archive-list { display:none; margin-top:1rem; padding-bottom:2rem; }
+.archive-list.show { display:block; }
+.archive-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(140px,1fr)); gap:0.5rem; }
+.archive-item { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-sm); padding:0.65rem 0.8rem; cursor:pointer; transition:all 0.15s; text-align:center; }
+.archive-item:hover { background:var(--surface-hover); border-color:var(--border-light); }
+.archive-item.active { border-color:var(--accent); background:var(--accent-dim); }
+.archive-date { font-family:var(--font-mono); font-size:0.75rem; color:var(--text-secondary); }
+.archive-count { font-size:0.7rem; color:var(--text-muted); margin-top:0.15rem; }
+.empty-state { text-align:center; padding:4rem 1rem; color:var(--text-muted); }
+.empty-state h2 { font-family:var(--font-display); font-size:1.4rem; color:var(--text-secondary); margin-bottom:0.5rem; }
+footer { border-top:1px solid var(--border); margin-top:3rem; padding:1.5rem 0 2rem; text-align:center; font-size:0.75rem; color:var(--text-muted); }
+@keyframes fadeUp { from { opacity:0; transform:translateY(12px); } to { opacity:1; transform:translateY(0); } }
+@media (max-width:540px) {
+  header { padding:2rem 0 1.5rem; }
+  .detail-inner { padding-left:1.25rem; padding-right:1.25rem; }
+  .card-header { padding:1rem 1.15rem; }
+  .card-num { display:none; }
 }
 </style>
 </head>
@@ -354,7 +103,7 @@ footer {
     <div class="header-top">
       <div class="brand">
         <h1>AI Agent <span>Daily Digest</span></h1>
-        <p>Sharpen your English while staying ahead of the AI agent revolution.</p>
+        <p>Curated AI insights for Data Science teams — read, discuss, stay sharp.</p>
       </div>
       <div class="date-nav">
         <button id="prev-btn" onclick="navDate(-1)" title="Previous day">&#8249;</button>
@@ -364,88 +113,53 @@ footer {
     </div>
     <div class="stats" id="stats-bar"></div>
   </header>
-
   <main>
     <div class="articles" id="articles-container"></div>
-
-    <button class="archive-toggle" id="archive-toggle" onclick="toggleArchive()">
-      <span>&#9783;</span> Browse archive
-    </button>
+    <button class="archive-toggle" onclick="toggleArchive()">&#9783; Browse archive</button>
     <div class="archive-list" id="archive-list">
       <div class="archive-grid" id="archive-grid"></div>
     </div>
   </main>
-
-  <footer>
-    AI Agent Daily Digest &mdash; auto-generated with Gemini &amp; GitHub Actions &mdash; updated daily
-  </footer>
+  <footer>AI Agent Daily Digest &mdash; multi-agent pipeline &bull; Gemini &bull; GitHub Actions &mdash; updated daily</footer>
 </div>
-
 <script>
-const ARCHIVES = [{"date": "2026-03-29", "articles": [{"headline": "Claude Code is Expensive; Free Alternative \"Goose\" Emerges", "one_liner": "A new free, open-source AI coding tool called Goose offers similar functions to the costly Claude Code, running locally without subscription fees.", "category": "release", "detailed_summary": "Anthropic's Claude Code, a terminal-based AI agent for coding, faces developer backlash due to its high subscription costs and restrictive token-based rate limits. In response, Block's open-source Goose AI agent provides identical functionality, operating entirely on a user's local machine, eliminating fees and cloud dependencies. This local execution model offers complete data control and offline capabilities, appealing to developers frustrated by commercial offerings' constraints. Goose's rapid adoption, evidenced by its GitHub stars, highlights a growing demand for transparent, cost-effective AI development tools that prioritize user autonomy over proprietary cloud services. This shift challenges the prevailing model of monetizing AI agents through usage-based pricing.", "vocabulary": [{"term": "autonomous", "definition": "Acting independently or having the freedom to do so, without external control.", "example": "The new drone can perform complex aerial maneuvers autonomously without constant human input."}, {"term": "proprietary", "definition": "Relating to an owner or ownership; often refers to technology owned by a company and not publicly available.", "example": "Many companies prefer proprietary software for critical internal systems due to enhanced support and customization options."}, {"term": "token-based limits", "definition": "Restrictions on AI model usage measured by the number of input/output units (tokens) processed, rather than time.", "example": "Developers often hit token-based limits when processing large datasets or engaging in lengthy conversational interactions with an LLM."}], "discussion_question": "How might the rise of local, open-source AI agents like Goose impact the business models of companies offering proprietary cloud-based AI coding tools?", "source_url": "https://venturebeat.com/infrastructure/claude-code-costs-up-to-usd200-a-month-goose-does-the-same-thing-for-free", "source_title": "Claude Code costs up to $200 a month. Goose does the same thing for free."}, {"headline": "Salesforce Rebuilds Slackbot into Powerful AI Agent for Workplace Tasks", "one_liner": "Salesforce has launched a significantly upgraded Slackbot, transforming it into an AI agent capable of enterprise data search and document drafting.", "category": "use-case", "detailed_summary": "Salesforce has completely re-engineered Slackbot, evolving it from a basic notification system into a sophisticated AI agent for enterprise users. This new architecture leverages a large language model and robust search capabilities to access diverse data sources, including Salesforce records, Google Drive, and Slack conversations. The strategic move positions Slack at the forefront of \"agentic AI\" in the workplace, aiming to automate complex tasks and enhance productivity. Notably, the initial deployment utilizes Anthropic's Claude due to specific compliance requirements like FedRAMP Moderate certification, though Salesforce plans to integrate other models like Google's Gemini in the future, demonstrating a multi-model strategy for enterprise AI.", "vocabulary": [{"term": "agentic AI", "definition": "AI systems designed to act autonomously, make decisions, and perform complex tasks on behalf of users.", "example": "The future of enterprise productivity lies in agentic AI that can manage workflows and execute tasks without constant human oversight."}, {"term": "compliance requirements", "definition": "Rules or standards that an organization must follow, often related to legal, regulatory, or security obligations.", "example": "Ensuring data privacy compliance requirements is crucial when deploying new AI systems that handle sensitive customer information."}, {"term": "architecture", "definition": "The fundamental structure of a system, defining its components and their relationships.", "example": "The new microservices architecture improved the system's scalability and resilience compared to the monolithic design."}], "discussion_question": "What are the key technical challenges and data governance considerations for integrating powerful AI agents like the new Slackbot across diverse enterprise data ecosystems?", "source_url": "https://venturebeat.com/technology/salesforce-rolls-out-new-slackbot-ai-agent-as-it-battles-microsoft-and", "source_title": "Salesforce rolls out new Slackbot AI agent as it battles Microsoft and Google in workplace AI"}, {"headline": "Anthropic's Cowork Agent Brings Claude's Power to Non-Coders", "one_liner": "Anthropic released Cowork, a desktop AI agent for non-technical users, extending Claude Code's capabilities to manage files and tasks.", "category": "release", "detailed_summary": "Anthropic has introduced Cowork, a new AI agent feature that democratizes the capabilities of its Claude Code tool for non-technical users. Built rapidly using Claude Code itself, Cowork enables the AI to interact directly with a user's local files and folders, performing tasks like generating expense reports from receipts. This \"folder-based architecture\" signifies a departure from traditional chat interfaces, requiring a higher level of trust and access to the user's local environment. The development was inspired by observing developers using Claude Code for non-coding tasks, highlighting the underlying model's versatility. This move positions Anthropic to compete in the broader AI-powered productivity market, beyond just coding assistance.", "vocabulary": [{"term": "democratizes", "definition": "Makes something accessible to everyone, not just a select few, often reducing barriers to access.", "example": "Cloud computing democratizes access to high-performance computing resources, even for small startups."}, {"term": "versatility", "definition": "The ability to adapt or be adapted to many different functions or activities easily.", "example": "The model's versatility allows it to be fine-tuned for various natural language processing tasks, from translation to summarization."}, {"term": "command-line complexity", "definition": "The difficulty or intricacy associated with using text-based commands in a terminal interface.", "example": "Reducing command-line complexity is essential for making powerful developer tools accessible to a wider audience."}], "discussion_question": "How does granting an AI agent direct access to a user's local file system, as with Cowork, balance productivity gains against potential security and privacy risks?", "source_url": "https://venturebeat.com/technology/anthropic-launches-cowork-a-claude-desktop-agent-that-works-in-your-files-no", "source_title": "Anthropic launches Cowork, a Claude Desktop agent that works in your files — no coding required"}, {"headline": "NousCoder-14B: Open-Source Coding Model Challenges Proprietary AI", "one_liner": "Nous Research launched NousCoder-14B, an open-source coding model that rivals larger proprietary systems, trained in just four days.", "category": "research", "detailed_summary": "Nous Research released NousCoder-14B, a 14-billion parameter open-source coding model that demonstrates competitive performance against larger proprietary systems like Claude Code, achieving a 67.87% accuracy on LiveCodeBench v6. Notably, this model was trained in only four days using 48 Nvidia B200 GPUs, showcasing efficient resource utilization. A key technical differentiator is its radical openness: Nous Research not only published the model weights but also the complete reinforcement learning environment and training harness (Atropos framework). This transparency allows other researchers to reproduce and extend the work, fostering collaborative advancement in AI-assisted software development and directly challenging the closed-source approach of commercial offerings.", "vocabulary": [{"term": "parameter", "definition": "A value that influences the behavior or output of a system, especially in machine learning models, referring to learned weights.", "example": "Increasing the number of parameters in a neural network generally enhances its capacity to learn complex patterns."}, {"term": "benchmark", "definition": "A standard or point of reference against which things may be compared or assessed for performance.", "example": "New algorithms are often evaluated against established benchmarks to demonstrate their performance improvements."}, {"term": "reproduce", "definition": "To recreate or duplicate a scientific experiment, study, or result, often to verify its validity.", "example": "Open-source code and detailed documentation are crucial for researchers to reproduce experimental results in machine learning."}], "discussion_question": "What are the long-term implications for AI innovation and adoption if open-source models can achieve comparable performance to proprietary systems with significantly less training time and cost?", "source_url": "https://venturebeat.com/technology/nous-researchs-nouscoder-14b-is-an-open-source-coding-model-landing-right-in", "source_title": "Nous Research's NousCoder-14B is an open-source coding model landing right in the Claude Code moment"}, {"headline": "Claude Code Creator's Workflow Reveals Parallel AI Agent Strategy", "one_liner": "Boris Cherny, Claude Code's creator, shared his workflow of running multiple AI agents simultaneously, boosting developer productivity significantly.", "category": "technical", "detailed_summary": "Boris Cherny, the creator of Claude Code, revealed a highly efficient workflow involving parallel execution of multiple AI agents, likening it to a real-time strategy game. He operates five Claude instances concurrently in his terminal and 5-10 more in a browser, using system notifications to manage inputs. This \"fleet commander\" approach allows a single developer to achieve the output of a small engineering team, demonstrating a novel \"orchestration\" strategy for maximizing AI productivity. Intriguingly, Cherny exclusively uses Anthropic's slowest but most powerful model, Opus 4.5, prioritizing quality of reasoning over latency. This workflow suggests that intelligent orchestration of existing models can yield exponential productivity gains, challenging the industry's focus solely on building larger, faster foundational models.", "vocabulary": [{"term": "orchestration", "definition": "The automated arrangement, coordination, and management of complex computer systems, software, and services.", "example": "Kubernetes is a popular tool for container orchestration, managing the deployment and scaling of applications."}, {"term": "latency", "definition": "The delay before a transfer of data begins following an instruction for its transfer; the time taken for a system to respond.", "example": "Minimizing network latency is critical for real-time applications like online gaming and high-frequency trading."}, {"term": "refactors", "definition": "Restructures existing computer code without changing its external behavior, typically to improve its readability or performance.", "example": "The team decided to refactor the legacy module to make it easier to integrate new features and reduce technical debt."}], "discussion_question": "How does the \"fleet commander\" approach to managing multiple AI agents, prioritizing reasoning over speed, challenge conventional software development methodologies and team structures?", "source_url": "https://venturebeat.com/technology/the-creator-of-claude-code-just-revealed-his-workflow-and-developers-are", "source_title": "The creator of Claude Code just revealed his workflow, and developers are losing their minds"}]}];
-
+const ARCHIVES = [{"date": "2026-03-29", "articles": [{"headline": "Anthropic Launches Cowork: Claude Desktop Agent for Non-Technical File Tasks", "one_liner": "Anthropic released \"Cowork,\" a Claude Desktop agent, as a research preview for Claude Max subscribers on macOS, enabling non-technical file-based tasks.", "detailed_summary": "Anthropic launched \"Cowork,\" a new AI agent capability for non-technical users, available as a research preview for Claude Max subscribers via the macOS desktop application. Cowork extends the functionality of the terminal-based \"Claude Code\" tool, allowing the underlying Claude Agent (reportedly powered by the Opus 4.5 model) to interact directly with user files and folders for tasks like generating expense reports. The feature was reportedly built in about 1.5 weeks, largely using Claude Code itself. This positions Anthropic to compete with Microsoft's Copilot in AI-powered productivity tools, leveraging observations of \"shadow usage\" where developers adapted Claude Code for non-coding tasks. Cowork is currently exclusive to Claude Max subscribers, priced between $100-$200 per month, and requires a different level of user trust due to its direct file system interaction.", "why_it_matters": "DS/ML practitioners should monitor Cowork's development as it represents a significant shift towards practical, agentic AI for non-technical workflows, potentially expanding the scope of automated tasks beyond code. Evaluate the underlying agent architecture and its ability to operate directly on file systems, considering its implications for building internal tools that require deeper system integration and user trust. This could inform future agentic system designs, particularly for automating complex, multi-step tasks that involve file manipulation.", "key_takeaway": "Anthropic's Cowork extends Claude's agent capabilities to non-technical file-based tasks on macOS, signaling a strategic move into broader AI-powered productivity and direct file system interaction.", "category": "release", "discussion_question": "Given Cowork's direct file system access and \"research preview\" status, what architectural patterns or security measures would be critical for us to implement if we were to develop similar agentic tools for internal enterprise data workflows?", "source_url": "https://venturebeat.com/technology/anthropic-launches-cowork-a-claude-desktop-agent-that-works-in-your-files-no", "source_title": "Anthropic launches Cowork, a Claude Desktop agent that works in your files — no coding required"}, {"headline": "Goose Offers Free Local AI Coding, Undercutting Claude Code's High Costs", "one_liner": "Block's open-source Goose provides free, local AI code generation, directly challenging Anthropic's Claude Code, which costs up to $200/month with restrictive usage caps.", "detailed_summary": "Goose, an open-source AI agent developed by Block, offers free, local code generation, debugging, and deployment, contrasting sharply with Anthropic's subscription-based Claude Code. Goose runs entirely on a user's local machine, boasts over 26,100 GitHub stars, 362 contributors, and its latest version 1.20.1 shipped on January 19, 2026. Claude Code's Pro plan ($17-$20/month) limits users to 10-40 prompts every five hours, while Max plans ($100-$200/month) offer more prompts and access to Claude 4.5 Opus, but also impose token-based weekly rate limits. This local, free model addresses developer frustration with Claude Code's pricing structure and usage caps, which can exhaust within minutes for intensive work. The article implies Claude Code's \"hours\" are token-based and vary, leading to unpredictable usage; Goose's \"nearly identical functionality\" is stated without direct performance benchmarks, and local execution implies user hardware dependency.", "why_it_matters": "Teams heavily reliant on AI coding assistants should evaluate Goose for potential cost savings and enhanced data privacy, especially for sensitive codebases. Consider migrating high-volume, repetitive coding tasks to a local agent to avoid cloud rate limits and unpredictable costs. Monitor Goose's feature parity and performance against commercial offerings for potential integration into internal tooling.", "key_takeaway": "Goose provides a compelling, free, local alternative to cloud-based AI coding agents, offering significant cost savings and data privacy benefits for developers.", "category": "technical", "discussion_question": "Given Goose's free, local execution and rapid development, should we prioritize evaluating it for internal tooling or specific developer workflows to reduce cloud AI costs and enhance data sovereignty?", "source_url": "https://venturebeat.com/infrastructure/claude-code-costs-up-to-usd200-a-month-goose-does-the-same-thing-for-free", "source_title": "Claude Code costs up to $200 a month. Goose does the same thing for free."}, {"headline": "NousCoder-14B: Open-source coding model released, matches larger proprietary systems.", "one_liner": "Nous Research released NousCoder-14B, an open-source 14B parameter coding model, achieving 67.87% on LiveCodeBench v6, a 7.08 percentage point improvement over Qwen3-14B.", "detailed_summary": "Nous Research released NousCoder-14B, an open-source 14B parameter model designed for competitive programming. The model was trained in four days using 48 Nvidia B200 GPUs and achieved 67.87% accuracy on LiveCodeBench v6. This performance marks a 7.08 percentage point improvement over its base model, Alibaba's Qwen3-14B. Notably, Nous Research open-sourced the model weights, reinforcement learning environment, benchmark suite, and training harness built on their Atropos framework, enabling full reproducibility. This release positions NousCoder-14B as an open-source alternative to proprietary systems like Anthropic's Claude Code, emphasizing transparency and verifiable problem-solving rather than general end-to-end software development. The article implies its focus is on \"olympiad-level reasoning\" rather than broad software engineering tasks.", "why_it_matters": "DS/ML practitioners should evaluate NousCoder-14B for competitive programming or complex algorithmic problem-solving tasks requiring high accuracy and verifiable solutions. The fully open-sourced training environment and Atropos framework offer a valuable resource for replicating or extending state-of-the-art model development in this domain. This provides a strong open-source alternative to proprietary coding assistants, particularly where transparency and reproducibility are key requirements.", "key_takeaway": "NousCoder-14B is an open-source 14B parameter model achieving 67.87% on LiveCodeBench v6, with its complete training environment and weights publicly released for full reproducibility.", "category": "release", "discussion_question": "Given NousCoder-14B's performance on competitive programming and its fully open-sourced stack, should we prioritize evaluating open-source models for specific, well-defined coding tasks over general-purpose proprietary agents like Claude Code, especially if reproducibility and customization are critical?", "source_url": "https://venturebeat.com/technology/nous-researchs-nouscoder-14b-is-an-open-source-coding-model-landing-right-in", "source_title": "Nous Research's NousCoder-14B is an open-source coding model landing right in the Claude Code moment"}, {"headline": "OpenAI Launches Safety Bug Bounty for AI Abuse, Prompt Injection", "one_liner": "OpenAI launched a Safety Bug Bounty program to address AI abuse, prompt injection, and data exfiltration risks in its models.", "detailed_summary": "OpenAI has initiated a Safety Bug Bounty program aimed at identifying and mitigating vulnerabilities specific to AI systems. The program specifically targets risks such as agentic vulnerabilities, prompt injection, and data exfiltration, alongside other forms of AI abuse and safety concerns. This initiative extends the common cybersecurity practice of bug bounties to the unique challenges presented by advanced AI models. The article serves as an announcement of the program's launch, without detailing specific reward tiers or the full scope of models covered by the bounty.", "why_it_matters": "DS/ML practitioners should recognize that AI-specific vulnerabilities like prompt injection are now formally acknowledged and actively pursued by leading AI developers. Teams building on or integrating with OpenAI models should monitor updates related to these security findings. Consider implementing internal red-teaming exercises focused on these identified risk categories for your own production AI systems.", "key_takeaway": "OpenAI's Safety Bug Bounty program signals a formal recognition and active effort to mitigate AI-specific security risks like prompt injection and agentic behavior.", "category": "release", "discussion_question": "Given OpenAI's focus on AI-specific vulnerabilities, what internal red-teaming strategies should our team adopt to proactively identify prompt injection or data exfiltration risks in our own production LLM applications?", "source_url": "https://openai.com/index/safety-bug-bounty", "source_title": "Introducing the OpenAI Safety Bug Bounty program"}, {"headline": "Gemini 3.1 Flash Live Enhances Audio AI Naturalness and Reliability", "one_liner": "Google has released Gemini 3.1 Flash Live, an update focused on making audio AI more natural and reliable.", "detailed_summary": "Google has announced the release of Gemini 3.1 Flash Live. The primary objective of this update is to enhance the naturalness and reliability of audio AI capabilities. The provided information does not detail specific architectural changes, parameter counts, or benchmark results for this release. The article does not offer comparative analysis against previous Gemini versions or other existing audio AI systems. No explicit limitations or caveats regarding the performance or application of Gemini 3.1 Flash Live are mentioned in the announcement.", "why_it_matters": "Practitioners should monitor official Google AI channels for further technical specifications and performance benchmarks related to Gemini 3.1 Flash Live. If current audio AI solutions present naturalness or reliability challenges, this release warrants future evaluation once more details become available.", "key_takeaway": "Gemini 3.1 Flash Live is now available, targeting improvements in audio AI naturalness and reliability, but specific technical details are not yet public.", "category": "release", "discussion_question": "What specific metrics or use cases should we prioritize for evaluating Gemini 3.1 Flash Live's audio AI capabilities once technical details and APIs are released?", "source_url": "https://blog.google/innovation-and-ai/models-and-research/gemini-models/gemini-3-1-flash-live/", "source_title": "Gemini 3.1 Flash Live: Making audio AI more natural and reliable"}]}];
 let currentIndex = 0;
-
 const categoryMeta = {
-  'release': { label: 'Release', cls: 'cat-release' },
-  'technical': { label: 'Technical', cls: 'cat-technical' },
-  'use-case': { label: 'Use case', cls: 'cat-use-case' },
-  'industry': { label: 'Industry', cls: 'cat-industry' },
-  'research': { label: 'Research', cls: 'cat-research' },
+  'release':   { label:'Release',   cls:'cat-release'   },
+  'technical': { label:'Technical', cls:'cat-technical' },
+  'use-case':  { label:'Use case',  cls:'cat-use-case'  },
+  'industry':  { label:'Industry',  cls:'cat-industry'  },
+  'research':  { label:'Research',  cls:'cat-research'  },
 };
-
-function esc(s) {
-  const d = document.createElement('div');
-  d.textContent = s || '';
-  return d.innerHTML;
-}
-
+function esc(s) { const d=document.createElement('div'); d.textContent=s||''; return d.innerHTML; }
 function renderDay(index) {
   currentIndex = index;
   const data = ARCHIVES[index];
   const container = document.getElementById('articles-container');
-  const statsBar = document.getElementById('stats-bar');
+  const statsBar  = document.getElementById('stats-bar');
   const dateLabel = document.getElementById('date-label');
-
   document.getElementById('prev-btn').disabled = index >= ARCHIVES.length - 1;
   document.getElementById('next-btn').disabled = index <= 0;
-
-  if (!data || !data.articles || data.articles.length === 0) {
-    container.innerHTML = '<div class="empty-state"><h2>No articles today</h2><p>Check back tomorrow for fresh AI agent news.</p></div>';
-    statsBar.innerHTML = '';
-    dateLabel.textContent = data ? data.date : 'No data';
-    return;
+  if (!data || !data.articles || !data.articles.length) {
+    container.innerHTML = '<div class="empty-state"><h2>No articles today</h2><p>Check back tomorrow.</p></div>';
+    statsBar.innerHTML = ''; dateLabel.textContent = data ? data.date : 'No data'; return;
   }
-
   try {
     const d = new Date(data.date + 'T00:00:00');
-    dateLabel.textContent = d.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
-  } catch(e) {
-    dateLabel.textContent = data.date;
-  }
-
+    dateLabel.textContent = d.toLocaleDateString('en-US', {year:'numeric',month:'long',day:'numeric'});
+  } catch(e) { dateLabel.textContent = data.date; }
   const cats = {};
-  data.articles.forEach(a => {
-    const c = a.category || 'technical';
-    cats[c] = (cats[c] || 0) + 1;
-  });
-  statsBar.innerHTML = `<span class="stat-pill" style="background:var(--accent-dim);color:var(--accent);">${data.articles.length} article${data.articles.length > 1 ? 's' : ''}</span>` +
-    Object.entries(cats).map(([cat, count]) => {
-      const m = categoryMeta[cat] || categoryMeta['technical'];
+  data.articles.forEach(a => { const c = a.category||'technical'; cats[c]=(cats[c]||0)+1; });
+  statsBar.innerHTML =
+    `<span class="stat-pill" style="background:var(--accent-dim);color:var(--accent);">${data.articles.length} article${data.articles.length>1?'s':''}</span>` +
+    Object.entries(cats).map(([cat,count]) => {
+      const m = categoryMeta[cat]||categoryMeta['technical'];
       return `<span class="stat-pill ${m.cls}"><span class="cat-dot"></span>${m.label} ${count}</span>`;
     }).join('');
-
   container.innerHTML = data.articles.map((article, i) => {
-    const cat = article.category || 'technical';
-    const m = categoryMeta[cat] || categoryMeta['technical'];
-    const vocabHtml = (article.vocabulary || []).map(v =>
-      `<div class="vocab-item">
-        <div class="vocab-term">${esc(v.term)}</div>
-        <div class="vocab-def">${esc(v.definition)}</div>
-        ${v.example ? `<div class="vocab-example">"${esc(v.example)}"</div>` : ''}
-      </div>`
-    ).join('');
-
+    const cat = article.category||'technical';
+    const m   = categoryMeta[cat]||categoryMeta['technical'];
     return `<div class="card" id="card-${i}">
       <div class="card-header" onclick="toggleCard(${i})">
         <span class="card-num">${String(i+1).padStart(2,'0')}</span>
@@ -453,66 +167,51 @@ function renderDay(index) {
           <div class="card-headline">${esc(article.headline)}</div>
           <div class="card-oneliner">${esc(article.one_liner)}</div>
           <div class="card-meta">
-            <span class="stat-pill ${m.cls}" style="font-size:0.7rem;padding:0.2rem 0.55rem;"><span class="cat-dot"></span>${m.label}</span>
+            <span class="stat-pill ${m.cls}" style="font-size:0.7rem;padding:0.2rem 0.55rem;">
+              <span class="cat-dot"></span>${m.label}
+            </span>
           </div>
         </div>
         <span class="expand-icon">&#9662;</span>
       </div>
-      <div class="card-detail">
-        <div class="detail-inner">
-          <div class="detail-section">
-            <h3>Summary</h3>
-            <div class="detail-summary">${esc(article.detailed_summary)}</div>
-          </div>
-          <div class="detail-section">
-            <h3>Vocabulary</h3>
-            <div class="vocab-list">${vocabHtml}</div>
-          </div>
-          <div class="detail-section">
-            <h3>Discussion</h3>
-            <div class="discussion-box">${esc(article.discussion_question)}</div>
-          </div>
-          ${article.source_url ? `<a class="source-link" href="${esc(article.source_url)}" target="_blank" rel="noopener">Read original article &#8599;</a>` : ''}
+      <div class="card-detail"><div class="detail-inner">
+        <div class="detail-section">
+          <h3>Summary</h3>
+          <div class="detail-summary">${esc(article.detailed_summary)}</div>
         </div>
-      </div>
+        ${article.why_it_matters?`<div class="detail-section">
+          <h3>Why It Matters</h3>
+          <div class="why-box">${esc(article.why_it_matters)}</div>
+        </div>`:''}
+        ${article.key_takeaway?`<div class="detail-section">
+          <h3>Key Takeaway</h3>
+          <div class="takeaway-box">${esc(article.key_takeaway)}</div>
+        </div>`:''}
+        ${article.discussion_question?`<div class="detail-section">
+          <h3>Team Discussion</h3>
+          <div class="discussion-box">${esc(article.discussion_question)}</div>
+        </div>`:''}
+        ${article.source_url?`<a class="source-link" href="${esc(article.source_url)}" target="_blank" rel="noopener">Read original article &#8599;</a>`:''}
+      </div></div>
     </div>`;
   }).join('');
-
   renderArchiveGrid();
 }
-
-function toggleCard(i) {
-  const card = document.getElementById('card-' + i);
-  if (card) card.classList.toggle('open');
-}
-
-function navDate(dir) {
-  const next = currentIndex - dir;
-  if (next >= 0 && next < ARCHIVES.length) renderDay(next);
-}
-
-function toggleArchive() {
-  const list = document.getElementById('archive-list');
-  list.classList.toggle('show');
-}
-
+function toggleCard(i) { const c=document.getElementById('card-'+i); if(c) c.classList.toggle('open'); }
+function navDate(dir) { const n=currentIndex-dir; if(n>=0&&n<ARCHIVES.length) renderDay(n); }
+function toggleArchive() { document.getElementById('archive-list').classList.toggle('show'); }
 function renderArchiveGrid() {
   const grid = document.getElementById('archive-grid');
-  grid.innerHTML = ARCHIVES.map((a, i) => {
-    const count = a.articles ? a.articles.length : 0;
-    return `<div class="archive-item ${i === currentIndex ? 'active' : ''}" onclick="renderDay(${i});window.scrollTo(0,0);">
+  grid.innerHTML = ARCHIVES.map((a,i) => {
+    const count = a.articles?a.articles.length:0;
+    return `<div class="archive-item ${i===currentIndex?'active':''}" onclick="renderDay(${i});window.scrollTo(0,0);">
       <div class="archive-date">${a.date}</div>
-      <div class="archive-count">${count} article${count !== 1 ? 's' : ''}</div>
+      <div class="archive-count">${count} article${count!==1?'s':''}</div>
     </div>`;
   }).join('');
 }
-
-if (ARCHIVES.length > 0) {
-  renderDay(0);
-} else {
-  document.getElementById('articles-container').innerHTML =
-    '<div class="empty-state"><h2>Welcome</h2><p>The first digest will appear after the next scheduled run.</p></div>';
-}
+if (ARCHIVES.length > 0) { renderDay(0); }
+else { document.getElementById('articles-container').innerHTML='<div class="empty-state"><h2>Welcome</h2><p>The first digest will appear after the next scheduled run.</p></div>'; }
 renderArchiveGrid();
 </script>
 </body>
