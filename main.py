@@ -1,12 +1,12 @@
-"""AI Agent Daily Digest — Generator (v5.0 - Multi-Agent, Importance-Aware)
+"""AI Agent Daily Digest — Generator (v5.1 - Multi-Agent, LLM-Filtered)
 Pipeline:
-  RSS Fetch (Python, source-balanced)
+  RSS Fetch + Agent 0: Filter (gemini-2.5-flash-lite, 1 call per feed)
     → Agent 1: Curator    — importance & impact scoring (gemini-2.5-flash-lite, 1 call)
     → Agent 2: Selector   — picks top articles for DS team (gemini-2.5-flash-lite, 1 call)
     → Agent 3: Analyst    — deep summary + practitioner insights (gemini-2.5-flash, 5 calls)
   HTML Build (Python)
 
-Total API calls: ~7  |  Well within Gemini free tier (15 RPM)
+Total API calls: ~15  |  Within Gemini free tier (15 RPM, 1500 RPD)
 """
 
 import os
@@ -105,70 +105,130 @@ def parse_json(text: str | None) -> dict | list | None:
 
 
 # ---------------------------------------------------------------------------
-# Step 1 — RSS Fetch (pure Python, no LLM)
+# Agent 0 — Feed-level relevance filter (LLM batch判定)
 # ---------------------------------------------------------------------------
+
+FILTER_PROMPT = """\
+You are a strict relevance filter for an AI/Data Science news digest.
+Below is a numbered list of articles from a single RSS feed.
+
+Return ONLY a JSON array of the article numbers that are **genuinely relevant**
+to data science, machine learning, or AI practitioners.
+
+Criteria for inclusion:
+- Directly about AI/ML models, tools, frameworks, datasets, or research
+- New product launches, API changes, or benchmarks in the AI/ML space
+- Industry news with concrete implications for AI practitioners (funding rounds alone are NOT enough)
+- Policy or regulation that directly impacts how AI systems are built or deployed
+
+Criteria for EXCLUSION:
+- General tech news that merely mentions AI in passing
+- Consumer gadget / hardware reviews unrelated to ML workloads
+- Opinion pieces without new factual information
+- Marketing or lifestyle content
+
+Example output: [1, 3, 5]
+If NONE of the articles are relevant, return an empty array: []
+
+Articles:
+{articles_block}
+"""
+
+
+# ---------------------------------------------------------------------------
+# Step 1 — RSS Fetch + Agent 0 LLM Filter
+# ---------------------------------------------------------------------------
+
+def _parse_feed_entries(feed_url: str) -> tuple[str, list[dict]]:
+    """Parse a single RSS feed and return (source_name, entries_list)."""
+    feed = feedparser.parse(feed_url)
+    source_name = feed.feed.get("title", feed_url)[:40]
+    entries = []
+    for entry in feed.entries[:15]:
+        title = entry.get("title", "").strip()
+        link  = entry.get("link",  "").strip()
+        body  = entry.get("summary") or entry.get("description") or ""
+        if not body and entry.get("content"):
+            body = entry["content"][0].get("value", "")
+        body = re.sub(r"<[^>]+>", " ", body).strip()
+        body = re.sub(r"\s+", " ", body)
+        if title and body and len(body) >= 80:
+            entries.append({"title": title, "link": link, "body": body, "source": source_name})
+    return source_name, entries
+
+
+def _llm_filter(entries: list[dict], source_name: str) -> list[dict]:
+    """Agent 0: Ask MODEL_LITE which entries are relevant. Returns filtered list."""
+    # Build numbered article block
+    articles_block = ""
+    for i, e in enumerate(entries, 1):
+        articles_block += f"\n[{i}] Title: {e['title']}\nSummary: {e['body'][:300]}\n"
+
+    prompt = FILTER_PROMPT.format(articles_block=articles_block)
+    raw = gemini_call(MODEL_LITE, prompt, temperature=0.1)
+    indices = parse_json(raw)
+
+    if isinstance(indices, list) and all(isinstance(n, (int, float)) for n in indices):
+        selected = [entries[int(n) - 1] for n in indices if 1 <= int(n) <= len(entries)]
+        print(f"   Agent 0: {len(selected)}/{len(entries)} relevant in [{source_name}]")
+        return selected
+
+    # Fallback: LLM failed — return all entries (let Curator handle quality later)
+    print(f"   ⚠ Agent 0 fallback for [{source_name}]: accepting all {len(entries)} entries")
+    return entries
+
 
 def fetch_candidates() -> list[dict]:
     """
     Fetch up to MAX_CANDIDATES articles from RSS feeds.
     Shuffles feed order and caps per-feed to ensure source diversity.
-    Light keyword pre-filter keeps obviously unrelated articles out.
+    Uses Agent 0 (MODEL_LITE) per feed for batch relevance filtering.
+    Falls back to accepting all entries if the LLM call fails.
     """
-    BROAD_KEYWORDS = [
-        "ai", "llm", "model", "agent", "openai", "anthropic", "google",
-        "gemini", "gpt", "claude", "machine learning", "deep learning",
-        "neural", "automation", "language model", "chatbot", "copilot",
-    ]
-
     candidates = []
     seen_titles: set[str] = set()
     feeds = list(RSS_FEEDS)
     random.shuffle(feeds)  # avoid same-source bias each run
 
     for feed_url in feeds:
-        feed_count = 0
+        if len(candidates) >= MAX_CANDIDATES:
+            break
         try:
-            feed = feedparser.parse(feed_url)
-            source_name = feed.feed.get("title", feed_url)[:40]
-            for entry in feed.entries[:15]:
-                if feed_count >= MAX_PER_FEED:
+            source_name, entries = _parse_feed_entries(feed_url)
+            if not entries:
+                continue
+
+            # De-duplicate against already-seen titles before LLM call
+            unique_entries = []
+            for e in entries:
+                norm = e["title"].lower().strip()
+                if norm not in seen_titles:
+                    unique_entries.append(e)
+            if not unique_entries:
+                continue
+
+            # Agent 0: LLM batch filter
+            filtered = _llm_filter(unique_entries, source_name)
+
+            # Apply per-feed cap and global cap
+            added = 0
+            for article in filtered:
+                if added >= MAX_PER_FEED:
                     break
-
-                title = entry.get("title", "").strip()
-                link  = entry.get("link",  "").strip()
-                body  = entry.get("summary") or entry.get("description") or ""
-                if not body and entry.get("content"):
-                    body = entry["content"][0].get("value", "")
-
-                body = re.sub(r"<[^>]+>", " ", body).strip()
-                body = re.sub(r"\s+", " ", body)
-
-                if not title or not body or len(body) < 80:
-                    continue
-
-                norm = title.lower().strip()
+                if len(candidates) >= MAX_CANDIDATES:
+                    break
+                norm = article["title"].lower().strip()
                 if norm in seen_titles:
                     continue
                 seen_titles.add(norm)
+                article["body"] = article["body"][:MAX_ARTICLE_CHARS]
+                candidates.append(article)
+                added += 1
 
-                combined = (title + " " + body).lower()
-                if any(kw in combined for kw in BROAD_KEYWORDS):
-                    candidates.append({
-                        "title":  title,
-                        "link":   link,
-                        "body":   body[:MAX_ARTICLE_CHARS],
-                        "source": source_name,
-                    })
-                    feed_count += 1
-
-                if len(candidates) >= MAX_CANDIDATES:
-                    break
         except Exception as exc:
             print(f"⚠ RSS error ({feed_url}): {exc}")
-        if len(candidates) >= MAX_CANDIDATES:
-            break
 
-    print(f"▸ RSS fetch: {len(candidates)} candidates")
+    print(f"▸ RSS fetch + Agent 0: {len(candidates)} candidates")
     return candidates
 
 
