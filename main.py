@@ -178,9 +178,13 @@ def normalize_url(url: str) -> str:
 # Node 1: Fetch Sources (RSS + optional Tavily)
 # ---------------------------------------------------------------------------
 BROAD_KEYWORDS = [
+    # Core AI terms
     "ai", "llm", "model", "agent", "openai", "anthropic", "google",
     "gemini", "gpt", "claude", "machine learning", "deep learning",
     "neural", "automation", "language model", "chatbot", "copilot",
+    # Practical use-case / infrastructure / evaluation
+    "use case", "production", "infrastructure", "evaluation", "roi",
+    "deployment", "efficiency", "data pipeline", "case study", "benchmark",
 ]
 
 
@@ -232,7 +236,7 @@ def node_fetch_sources(state: PipelineState) -> dict:
                 "https://api.tavily.com/search",
                 json={
                     "api_key": TAVILY_API_KEY,
-                    "query": "latest AI LLM agent release news today",
+                    "query": "latest AI LLM agent (release OR use case OR in production OR evaluation) news today",
                     "search_depth": "advanced",
                     "time_range": "day",
                     "max_results": 5,
@@ -288,10 +292,11 @@ Return a JSON ARRAY of objects:
 
 Rules:
 - Return ONLY a valid JSON array.
-- Score 8-10: Major model releases, breakthrough research, key agentic framework updates.
-- Score 5-7: Interesting but not groundbreaking AI industry news.
-- Score 1-4: Tangentially related, business fluff, or non-technical content.
+- Score 8-10: Major model releases, breakthrough research, key agentic framework updates, OR deep technical case studies showing AI in production, infrastructure design, and concrete evaluation metrics.
+- Score 5-7: Interesting but not groundbreaking AI industry news, or general use-case overviews.
+- Score 1-4: Tangentially related, pure PR/marketing fluff with no technical details, or non-technical business announcements.
 - Penalise opinion pieces with no new information.
+- Do NOT penalise practical engineering articles (deployment stories, evaluation methods, data pipeline design) — these are highly valuable if they contain technical specifics.
 - If two articles cover the SAME story (same event, same announcement) from different sources, give the WEAKER one a score of 1 and note "duplicate of [other title]" in the reason. This is critical for deduplication.
 
 Articles:
