@@ -25,6 +25,8 @@ import time
 import datetime
 import re
 from typing import TypedDict
+from urllib.parse import urlparse, urlunparse, parse_qs, urlencode
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import feedparser
 import requests
@@ -56,6 +58,7 @@ MIN_ARTICLES      = 3
 MAX_ARTICLE_CHARS = 3000
 JINA_MAX_CHARS    = 40000
 AGENT_SLEEP_SEC   = 5
+ENRICH_WORKERS    = 2      # Concurrent enrichment threads (keep <=3 for 15 RPM)
 
 ARCHIVE_DIR  = "archives"
 ARCHIVE_DAYS = 30
@@ -124,19 +127,51 @@ def parse_json(text: str | None) -> dict | list | None:
 
 
 def read_article_jina(url: str) -> str | None:
+    """Read full article via Jina Reader. Returns None on failure (403, timeout, etc)."""
     try:
         print(f"    [Jina] Reading: {url[:80]}")
         resp = requests.get(
             f"https://r.jina.ai/{url}",
-            headers={"Accept": "text/plain"},
+            headers={"Accept": "text/plain", "X-No-Cache": "true"},
             timeout=30,
         )
         if resp.status_code == 200:
-            return resp.text[:JINA_MAX_CHARS]
-        print(f"    [Jina] HTTP {resp.status_code}: {url[:60]}")
+            text = resp.text[:JINA_MAX_CHARS]
+            # Guard against near-empty responses (bot-blocked pages)
+            if len(text.strip()) < 200:
+                print(f"    [Jina] Response too short ({len(text)} chars), likely blocked: {url[:60]}")
+                return None
+            return text
+        print(f"    [Jina] HTTP {resp.status_code} (blocked/error): {url[:60]}")
+    except requests.exceptions.Timeout:
+        print(f"    [Jina] Timeout: {url[:60]}")
     except Exception as exc:
         print(f"    [Jina] Error: {exc}")
     return None
+
+
+def normalize_url(url: str) -> str:
+    """Normalize URL for deduplication: strip tracking params, fragments, trailing slashes."""
+    try:
+        parsed = urlparse(url)
+        # Remove common tracking parameters
+        tracking_params = {"utm_source", "utm_medium", "utm_campaign", "utm_content",
+                           "utm_term", "ref", "source", "fbclid", "gclid"}
+        qs = parse_qs(parsed.query, keep_blank_values=False)
+        cleaned_qs = {k: v for k, v in qs.items() if k.lower() not in tracking_params}
+        clean_query = urlencode(cleaned_qs, doseq=True)
+        # Normalize: lowercase host, strip fragment, strip trailing slash
+        normalized = urlunparse((
+            parsed.scheme.lower(),
+            parsed.netloc.lower(),
+            parsed.path.rstrip("/"),
+            parsed.params,
+            clean_query,
+            "",  # drop fragment
+        ))
+        return normalized
+    except Exception:
+        return url.lower().strip()
 
 
 # ---------------------------------------------------------------------------
@@ -153,6 +188,7 @@ def node_fetch_sources(state: PipelineState) -> dict:
     print("\n=== Step 1: Fetching Sources ===")
     candidates: list[dict] = []
     seen_titles: set[str] = set()
+    seen_urls: set[str] = set()      # URL-based dedup (Fix #2)
 
     for feed_url in RSS_FEEDS:
         try:
@@ -170,7 +206,12 @@ def node_fetch_sources(state: PipelineState) -> dict:
                 norm = title.lower().strip()
                 if norm in seen_titles:
                     continue
+                # URL-based dedup: catch same article from different feeds
+                norm_url = normalize_url(link)
+                if norm_url in seen_urls:
+                    continue
                 seen_titles.add(norm)
+                seen_urls.add(norm_url)
                 combined = (title + " " + body).lower()
                 if any(kw in combined for kw in BROAD_KEYWORDS):
                     candidates.append({
@@ -202,8 +243,10 @@ def node_fetch_sources(state: PipelineState) -> dict:
                 for r in resp.json().get("results", []):
                     title = r.get("title", "").strip()
                     norm = title.lower().strip()
-                    if norm and norm not in seen_titles:
+                    norm_url = normalize_url(r.get("url", ""))
+                    if norm and norm not in seen_titles and norm_url not in seen_urls:
                         seen_titles.add(norm)
+                        seen_urls.add(norm_url)
                         candidates.append({
                             "title": title, "link": r.get("url", ""),
                             "body": r.get("content", "")[:MAX_ARTICLE_CHARS],
@@ -249,6 +292,7 @@ Rules:
 - Score 5-7: Interesting but not groundbreaking AI industry news.
 - Score 1-4: Tangentially related, business fluff, or non-technical content.
 - Penalise opinion pieces with no new information.
+- If two articles cover the SAME story (same event, same announcement) from different sources, give the WEAKER one a score of 1 and note "duplicate of [other title]" in the reason. This is critical for deduplication.
 
 Articles:
 {articles_block}
@@ -348,6 +392,7 @@ def node_agent_selector(state: PipelineState) -> dict:
 # Node 4: Deep Reader (Jina)
 # ---------------------------------------------------------------------------
 def node_deep_reader(state: PipelineState) -> dict:
+    """Read full articles via Jina Reader. Falls back to RSS snippet on failure (Fix #3)."""
     selected = state["selected"]
     print(f"\n=== Step 4: Deep Reader - Fetching full content for {len(selected)} articles ===")
     enriched = []
@@ -357,10 +402,13 @@ def node_deep_reader(state: PipelineState) -> dict:
             full_text = read_article_jina(url)
             if full_text:
                 enriched.append({**article, "body": full_text})
+                print(f"    OK: Full content ({len(full_text)} chars)")
                 continue
+            else:
+                print(f"    Fallback: Using RSS snippet for '{article['title'][:50]}'")
         enriched.append(article)
     upgraded = sum(1 for a in enriched if len(a.get("body", "")) > MAX_ARTICLE_CHARS)
-    print(f"  > Deep read complete: {upgraded}/{len(enriched)} articles upgraded")
+    print(f"  > Deep read complete: {upgraded}/{len(enriched)} upgraded, {len(enriched)-upgraded} using RSS fallback")
     return {"selected": enriched}
 
 
@@ -421,70 +469,109 @@ Article text:
 """
 
 
+def _enrich_single_article(article: dict, index: int, total: int) -> dict | None:
+    """Enrich a single article (summarize + vocab). Runs in a thread."""
+    label = f"[{index+1}/{total}]"
+    print(f"\n  > {label} {article['title'][:60]}...")
+
+    # --- Agent 3: Summarizer (sends article body to Gemini, NOT the State) ---
+    time.sleep(AGENT_SLEEP_SEC)
+    summary_prompt = SUMMARIZER_PROMPT.format(
+        category=article.get("category", "technical"),
+        title=article["title"], body=article["body"],
+    )
+    summary_raw = gemini_call(MODEL_HEAVY, summary_prompt, temperature=0.4)
+    summary = parse_json(summary_raw)
+    if not isinstance(summary, dict):
+        print(f"    {label} Warning: Summarizer failed - skipping")
+        return None
+    required_fields = ("headline", "one_liner", "detailed_summary")
+    if not all(isinstance(summary.get(k), str) for k in required_fields):
+        print(f"    {label} Warning: Summarizer missing fields - skipping")
+        return None
+
+    # --- Agent 4: English Coach (uses summary, NOT full body) ---
+    time.sleep(AGENT_SLEEP_SEC)
+    coach_prompt = ENGLISH_COACH_PROMPT.format(
+        used_terms_list="(deduped after collection)",
+        title=article["title"],
+        summary=summary.get("detailed_summary", ""),
+        body=article["body"][:8000],
+    )
+    coach_raw = gemini_call(MODEL_HEAVY, coach_prompt, temperature=0.6)
+    coaching = parse_json(coach_raw)
+    if not isinstance(coaching, dict):
+        print(f"    {label} Warning: EnglishCoach failed")
+        coaching = {"vocabulary": [], "discussion_question": ""}
+
+    print(f"    {label} OK: enriched")
+    return {
+        "headline":            summary.get("headline", article["title"]),
+        "one_liner":           summary.get("one_liner", ""),
+        "detailed_summary":    summary.get("detailed_summary", ""),
+        "category":            article.get("category", "technical"),
+        "vocabulary":          coaching.get("vocabulary", []),
+        "discussion_question": coaching.get("discussion_question", ""),
+        "source_url":          article.get("link", ""),
+        "source_title":        article.get("title", ""),
+    }
+
+
 def node_agent_enricher(state: PipelineState) -> dict:
+    """Agent 3+4: Concurrent enrichment with ThreadPoolExecutor (Fix #4).
+
+    Why ThreadPoolExecutor instead of LangGraph Send API:
+    - Send API creates separate subgraph states that can't easily share
+      used_vocab_terms across parallel branches.
+    - With Gemini's 15 RPM limit, we want controlled concurrency (2 workers),
+      not unbounded fan-out. ThreadPoolExecutor gives us that control.
+    - The vocabulary dedup is applied AFTER collection (fan-in), which is
+      simpler and avoids race conditions.
+    """
     selected = state["selected"]
-    print(f"\n=== Step 5: Agent Enricher - Processing {len(selected)} articles ===")
+    print(f"\n=== Step 5: Agent Enricher - Processing {len(selected)} articles (workers={ENRICH_WORKERS}) ===")
+
+    # --- Concurrent enrichment (Fix #4) ---
+    results: list[tuple[int, dict | None]] = []
+    with ThreadPoolExecutor(max_workers=ENRICH_WORKERS) as executor:
+        futures = {
+            executor.submit(_enrich_single_article, article, i, len(selected)): i
+            for i, article in enumerate(selected)
+        }
+        for future in as_completed(futures):
+            idx = futures[future]
+            try:
+                result = future.result()
+                results.append((idx, result))
+            except Exception as exc:
+                print(f"    Warning: Article {idx+1} raised exception: {exc}")
+                results.append((idx, None))
+
+    # Preserve original order, filter failures
+    results.sort(key=lambda x: x[0])
+    final_articles = [r for _, r in results if r is not None]
+
+    # --- Vocabulary dedup across all articles (fan-in phase) ---
     used_vocab_terms: set[str] = set(state.get("used_vocab_terms", []))
-    final_articles: list[dict] = []
+    for article in final_articles:
+        deduped = []
+        for v in article.get("vocabulary", []):
+            term_key = v.get("term", "").lower().strip()
+            if term_key and term_key not in used_vocab_terms:
+                used_vocab_terms.add(term_key)
+                deduped.append(v)
+        article["vocabulary"] = deduped
 
-    for i, article in enumerate(selected):
-        print(f"\n  > Article {i+1}/{len(selected)}: {article['title'][:60]}...")
-
-        time.sleep(AGENT_SLEEP_SEC)
-        summary_prompt = SUMMARIZER_PROMPT.format(
-            category=article.get("category", "technical"),
-            title=article["title"], body=article["body"],
-        )
-        summary_raw = gemini_call(MODEL_HEAVY, summary_prompt, temperature=0.4)
-        summary = parse_json(summary_raw)
-        if not isinstance(summary, dict):
-            print(f"    Warning: Summarizer failed - skipping article {i+1}")
-            continue
-        required_fields = ("headline", "one_liner", "detailed_summary")
-        if not all(isinstance(summary.get(k), str) for k in required_fields):
-            print(f"    Warning: Summarizer missing fields - skipping article {i+1}")
-            continue
-
-        time.sleep(AGENT_SLEEP_SEC)
-        used_terms_list = ", ".join(sorted(used_vocab_terms)) if used_vocab_terms else "none yet"
-        coach_prompt = ENGLISH_COACH_PROMPT.format(
-            used_terms_list=used_terms_list, title=article["title"],
-            summary=summary.get("detailed_summary", ""),
-            body=article["body"][:8000],
-        )
-        coach_raw = gemini_call(MODEL_HEAVY, coach_prompt, temperature=0.6)
-        coaching = parse_json(coach_raw)
-        if not isinstance(coaching, dict):
-            print(f"    Warning: EnglishCoach failed for article {i+1}")
-            coaching = {"vocabulary": [], "discussion_question": ""}
-
-        vocab = coaching.get("vocabulary", [])
-        if isinstance(vocab, list):
-            deduped = []
-            for v in vocab:
-                term_key = v.get("term", "").lower().strip()
-                if term_key and term_key not in used_vocab_terms:
-                    used_vocab_terms.add(term_key)
-                    deduped.append(v)
-            coaching["vocabulary"] = deduped
-
-        final_articles.append({
-            "headline":            summary.get("headline", article["title"]),
-            "one_liner":           summary.get("one_liner", ""),
-            "detailed_summary":    summary.get("detailed_summary", ""),
-            "category":            article.get("category", "technical"),
-            "vocabulary":          coaching.get("vocabulary", []),
-            "discussion_question": coaching.get("discussion_question", ""),
-            "source_url":          article.get("link", ""),
-            "source_title":        article.get("title", ""),
-        })
-        print(f"    OK: Article {i+1} enriched")
+    # --- Strip raw body from State to free memory (Fix #1) ---
+    # The heavy article text was only needed for Gemini prompts (already sent).
+    # final_articles only contain lightweight summary JSON, not the 40k-char bodies.
 
     print(f"\n  > Enrichment complete: {len(final_articles)}/{len(selected)} articles")
     return {
         "final_articles": final_articles,
         "used_vocab_terms": list(used_vocab_terms),
         "output_json": final_articles,
+        "selected": [],  # (Fix #1) Clear heavy body text from State
     }
 
 
