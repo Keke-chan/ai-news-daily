@@ -1,21 +1,27 @@
 """
-AI Agent Daily Digest — v5.0 (LangGraph Multi-Agent Pipeline)
+AI Agent Daily Digest — v6.0 (ReAct Curation Pipeline)
 
-Architecture (LangGraph StateGraph):
+Architecture (LangGraph StateGraph with ReAct loop):
 
-  [RSS Fetch] + [Tavily Search]
+  [Fetch Sources]  RSS + Tavily + cross-day dedup
          |
-    [Curator]     Agent 1: Score articles  (flash-lite, 1 call)
+  [Triage]         Agent 1: Quick-scan all candidates       (flash-lite, 1 call)
          |
-    [Selector]    Agent 2: Pick balanced   (flash-lite, 1 call)
+  ┌─[Investigate]  Jina Reader: Full text for shortlist     (HTTP, ~10 calls)
+  │      |
+  │ [Deep Score]   Agent 2: 2-axis scoring per article      (flash + thinking, N calls)
+  │      |
+  │ [Reflect]      Agent 3: Self-critique, decide next step (flash, 1 call)
+  │      |
+  └──< if needs more candidates, loop back to Investigate >
          |
-    [Deep Reader] Jina Reader: Full text   (HTTP, N calls)
+  [Select]         Agent 4: Final pick with constraints     (flash-lite, 1 call)
          |
-    [Enricher]    Agent 3+4: Summary+Vocab (flash, 2N calls)
+  [Enricher]       Agent 5+6: Summary + Vocab per article   (flash, 2N calls)
          |
-    [Build Output] HTML + JSON archive
+  [Build Output]   HTML + JSON archive
 
-Total Gemini API calls: ~12  |  Well within free tier (15 RPM)
+Estimated cost: ~$0.05-0.10/day ≈ ~300-500 yen/month (Gemini 2.5 Flash)
 """
 
 import os
@@ -32,6 +38,7 @@ import feedparser
 import requests
 from langgraph.graph import StateGraph, END
 
+
 # ---------------------------------------------------------------------------
 # Configuration
 # ---------------------------------------------------------------------------
@@ -42,72 +49,127 @@ MODEL_LITE  = os.environ.get("GEMINI_MODEL_LITE",  "gemini-2.5-flash-lite")
 MODEL_HEAVY = os.environ.get("GEMINI_MODEL_HEAVY", "gemini-2.5-flash")
 
 RSS_FEEDS = [
+    # --- General AI News ---
     "https://techcrunch.com/category/artificial-intelligence/feed/",
     "https://www.theverge.com/rss/ai-artificial-intelligence/index.xml",
-    "https://feeds.arstechnica.com/arstechnica/technology-lab",
     "https://venturebeat.com/category/ai/feed/",
+    "https://www.technologyreview.com/feed/",
+    # --- Vendor / Research blogs ---
     "https://blog.google/technology/ai/rss/",
     "https://openai.com/blog/rss.xml",
-    "https://huggingface.co/blog/feed.xml",
-    "https://www.technologyreview.com/feed/",
+    # --- Practical AI / Engineering / Use-case ---
+    "https://ai.gopubby.com/feed",                         # AI in Plain English
+    "https://towardsdatascience.com/feed",                  # Towards Data Science
+    "https://neptune.ai/blog/feed",                         # Neptune.ai — MLOps
+    "https://www.deeplearning.ai/the-batch/feed/",          # Andrew Ng's The Batch
+    "https://huyenchip.com/feed.xml",                       # Chip Huyen — ML systems
+    "https://simonwillison.net/atom/everything/",           # Simon Willison — practical LLM
+    "https://lilianweng.github.io/index.xml",               # Lil'Log — deep practical AI
+    "https://www.latent.space/feed",                        # Latent Space podcast/blog
+    "https://newsletter.pragmaticengineer.com/feed",        # Pragmatic Engineer × AI
 ]
 
-MAX_CANDIDATES    = 20
-TARGET_ARTICLES   = 5
-MIN_ARTICLES      = 3
-MAX_ARTICLE_CHARS = 3000
-JINA_MAX_CHARS    = 40000
-AGENT_SLEEP_SEC   = 5
-ENRICH_WORKERS    = 2      # Concurrent enrichment threads (keep <=3 for 15 RPM)
+MAX_CANDIDATES      = 30
+TARGET_ARTICLES     = 5
+MIN_ARTICLES        = 3
+MAX_ARTICLE_CHARS   = 3000
+JINA_MAX_CHARS      = 40000
+AGENT_SLEEP_SEC     = 3
+ENRICH_WORKERS      = 2
+INVESTIGATE_WORKERS = 3
 
-ARCHIVE_DIR  = "archives"
-ARCHIVE_DAYS = 30
-OUTPUT_FILE  = "index.html"
+ARCHIVE_DIR         = "archives"
+ARCHIVE_DAYS        = 30
+OUTPUT_FILE         = "index.html"
+
+# ReAct curation config
+DEDUP_LOOKBACK_DAYS   = 3
+REACT_MAX_ITERATIONS  = 2
+SHORTLIST_SIZE        = 10
+THINKING_BUDGET_DEEP  = 8192   # tokens for deep scoring (higher = more thoughtful)
+
+# 2-axis scoring weights (business_value-heavy per user preference)
+WEIGHT_WORLD    = 0.3
+WEIGHT_BUSINESS = 0.7
+
+BROAD_KEYWORDS = [
+    # Core AI terms
+    "ai", "llm", "model", "agent", "openai", "anthropic", "google",
+    "gemini", "gpt", "claude", "machine learning", "deep learning",
+    "neural", "automation", "language model", "chatbot", "copilot",
+    # Practical use-case / infrastructure / evaluation
+    "use case", "production", "infrastructure", "evaluation", "roi",
+    "deployment", "efficiency", "data pipeline", "case study", "benchmark",
+    # Practical engineering keywords
+    "mlops", "fine-tune", "fine-tuning", "rag", "retrieval", "vector",
+    "embedding", "prompt engineering", "guardrail", "observability",
+    "cost reduction", "latency", "real-world", "lessons learned",
+    "postmortem", "architecture", "workflow", "pipeline",
+]
 
 
 # ---------------------------------------------------------------------------
 # Pipeline State (LangGraph typed state)
 # ---------------------------------------------------------------------------
 class PipelineState(TypedDict, total=False):
-    candidates:       list[dict]
-    scored:           list[dict]
-    selected:         list[dict]
-    final_articles:   list[dict]
-    used_vocab_terms: list[str]
-    today_str:        str
-    status:           str
-    output_json:      list[dict]
+    candidates:        list[dict]
+    today_str:         str
+    status:            str
+    # Cross-day dedup
+    recent_urls:       list[str]
+    recent_headlines:  list[str]
+    # ReAct curation loop
+    triage_scored:     list[dict]     # ALL candidates with triage scores (for expand)
+    shortlist:         list[dict]     # after triage
+    investigated:      list[dict]     # after Jina read (accumulates)
+    deep_scored:       list[dict]     # after 2-axis scoring (accumulates)
+    react_iteration:   int            # 0-based, incremented by reflect
+    react_action:      str            # "investigate_more" | "finalize"
+    # Selection & enrichment
+    selected:          list[dict]
+    final_articles:    list[dict]
+    used_vocab_terms:  list[str]
+    output_json:       list[dict]
 
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
-def gemini_call(model: str, prompt: str, temperature: float = 0.5) -> str | None:
+def gemini_call(
+    model: str,
+    prompt: str,
+    temperature: float = 0.5,
+    thinking_budget: int | None = None,
+) -> str | None:
+    """Call Gemini API. Optional thinking_budget for deep reasoning."""
     if not GEMINI_API_KEY:
-        print("X GEMINI_API_KEY is not set.")
+        print("✗ GEMINI_API_KEY is not set.")
         return None
     url = (
         f"https://generativelanguage.googleapis.com/v1beta/models/"
         f"{model}:generateContent?key={GEMINI_API_KEY}"
     )
+    gen_config: dict = {
+        "temperature": temperature,
+        "responseMimeType": "application/json",
+    }
+    if thinking_budget is not None:
+        gen_config["thinkingConfig"] = {"thinkingBudget": thinking_budget}
     try:
         resp = requests.post(
             url,
             headers={"Content-Type": "application/json"},
             json={
                 "contents": [{"parts": [{"text": prompt}]}],
-                "generationConfig": {
-                    "temperature": temperature,
-                    "responseMimeType": "application/json",
-                },
+                "generationConfig": gen_config,
             },
-            timeout=120,
+            timeout=180,
         )
         resp.raise_for_status()
         result = resp.json()
         return result["candidates"][0]["content"]["parts"][0]["text"]
     except Exception as exc:
-        print(f"X Gemini call failed ({model}): {exc}")
+        print(f"✗ Gemini call failed ({model}): {exc}")
         return None
 
 
@@ -122,12 +184,12 @@ def parse_json(text: str | None) -> dict | list | None:
         try:
             return json.loads(cleaned)
         except Exception:
-            print("X JSON parse failed")
+            print("✗ JSON parse failed")
             return None
 
 
 def read_article_jina(url: str) -> str | None:
-    """Read full article via Jina Reader. Returns None on failure (403, timeout, etc)."""
+    """Read full article via Jina Reader."""
     try:
         print(f"    [Jina] Reading: {url[:80]}")
         resp = requests.get(
@@ -137,12 +199,11 @@ def read_article_jina(url: str) -> str | None:
         )
         if resp.status_code == 200:
             text = resp.text[:JINA_MAX_CHARS]
-            # Guard against near-empty responses (bot-blocked pages)
             if len(text.strip()) < 200:
-                print(f"    [Jina] Response too short ({len(text)} chars), likely blocked: {url[:60]}")
+                print(f"    [Jina] Response too short ({len(text)} chars): {url[:60]}")
                 return None
             return text
-        print(f"    [Jina] HTTP {resp.status_code} (blocked/error): {url[:60]}")
+        print(f"    [Jina] HTTP {resp.status_code}: {url[:60]}")
     except requests.exceptions.Timeout:
         print(f"    [Jina] Timeout: {url[:60]}")
     except Exception as exc:
@@ -151,48 +212,74 @@ def read_article_jina(url: str) -> str | None:
 
 
 def normalize_url(url: str) -> str:
-    """Normalize URL for deduplication: strip tracking params, fragments, trailing slashes."""
+    """Normalize URL for deduplication."""
     try:
         parsed = urlparse(url)
-        # Remove common tracking parameters
-        tracking_params = {"utm_source", "utm_medium", "utm_campaign", "utm_content",
-                           "utm_term", "ref", "source", "fbclid", "gclid"}
+        tracking_params = {
+            "utm_source", "utm_medium", "utm_campaign", "utm_content",
+            "utm_term", "ref", "source", "fbclid", "gclid",
+        }
         qs = parse_qs(parsed.query, keep_blank_values=False)
         cleaned_qs = {k: v for k, v in qs.items() if k.lower() not in tracking_params}
         clean_query = urlencode(cleaned_qs, doseq=True)
-        # Normalize: lowercase host, strip fragment, strip trailing slash
         normalized = urlunparse((
             parsed.scheme.lower(),
             parsed.netloc.lower(),
             parsed.path.rstrip("/"),
             parsed.params,
             clean_query,
-            "",  # drop fragment
+            "",
         ))
         return normalized
     except Exception:
         return url.lower().strip()
 
 
-# ---------------------------------------------------------------------------
-# Node 1: Fetch Sources (RSS + optional Tavily)
-# ---------------------------------------------------------------------------
-BROAD_KEYWORDS = [
-    # Core AI terms
-    "ai", "llm", "model", "agent", "openai", "anthropic", "google",
-    "gemini", "gpt", "claude", "machine learning", "deep learning",
-    "neural", "automation", "language model", "chatbot", "copilot",
-    # Practical use-case / infrastructure / evaluation
-    "use case", "production", "infrastructure", "evaluation", "roi",
-    "deployment", "efficiency", "data pipeline", "case study", "benchmark",
-]
+def load_recent_article_fingerprints(
+    lookback_days: int = DEDUP_LOOKBACK_DAYS,
+) -> tuple[set[str], list[str]]:
+    """Load URLs and headlines from recent archives for cross-day dedup."""
+    recent_urls: set[str] = set()
+    recent_headlines: list[str] = []
+    today = datetime.date.today()
+
+    for days_ago in range(1, lookback_days + 1):
+        date_str = (today - datetime.timedelta(days=days_ago)).strftime("%Y-%m-%d")
+        filepath = os.path.join(ARCHIVE_DIR, f"{date_str}.json")
+        if not os.path.exists(filepath):
+            continue
+        try:
+            with open(filepath, "r", encoding="utf-8") as f:
+                archive = json.load(f)
+            for article in archive.get("articles", []):
+                url = article.get("source_url", "")
+                if url:
+                    recent_urls.add(normalize_url(url))
+                for key in ("headline", "source_title"):
+                    val = article.get(key, "")
+                    if val:
+                        recent_headlines.append(val)
+        except Exception as exc:
+            print(f"  Warning: Error loading {filepath}: {exc}")
+
+    return recent_urls, recent_headlines
 
 
+# ---------------------------------------------------------------------------
+# Node 1: Fetch Sources (RSS + optional Tavily + cross-day dedup)
+# ---------------------------------------------------------------------------
 def node_fetch_sources(state: PipelineState) -> dict:
     print("\n=== Step 1: Fetching Sources ===")
+
+    # Cross-day dedup: load recent article fingerprints
+    recent_urls, recent_headlines = load_recent_article_fingerprints()
+    recent_titles_lower = {h.lower().strip() for h in recent_headlines}
+    print(f"  > Cross-day dedup: {len(recent_urls)} URLs, "
+          f"{len(recent_titles_lower)} headlines from last {DEDUP_LOOKBACK_DAYS} days")
+
     candidates: list[dict] = []
     seen_titles: set[str] = set()
-    seen_urls: set[str] = set()      # URL-based dedup (Fix #2)
+    seen_urls: set[str] = set(recent_urls)  # seed with past URLs
 
     for feed_url in RSS_FEEDS:
         try:
@@ -210,7 +297,10 @@ def node_fetch_sources(state: PipelineState) -> dict:
                 norm = title.lower().strip()
                 if norm in seen_titles:
                     continue
-                # URL-based dedup: catch same article from different feeds
+                # Cross-day title dedup
+                if norm in recent_titles_lower:
+                    continue
+                # URL-based dedup
                 norm_url = normalize_url(link)
                 if norm_url in seen_urls:
                     continue
@@ -229,6 +319,7 @@ def node_fetch_sources(state: PipelineState) -> dict:
         if len(candidates) >= MAX_CANDIDATES:
             break
 
+    # Tavily supplementation
     if TAVILY_API_KEY and len(candidates) < MAX_CANDIDATES:
         print("  [Tavily] Supplementing with web search...")
         try:
@@ -236,7 +327,10 @@ def node_fetch_sources(state: PipelineState) -> dict:
                 "https://api.tavily.com/search",
                 json={
                     "api_key": TAVILY_API_KEY,
-                    "query": "latest AI LLM agent (release OR use case OR in production OR evaluation) news today",
+                    "query": (
+                        "latest AI LLM agent (production deployment OR "
+                        "architecture OR case study OR evaluation OR MLOps) today"
+                    ),
                     "search_depth": "advanced",
                     "time_range": "day",
                     "max_results": 5,
@@ -248,7 +342,9 @@ def node_fetch_sources(state: PipelineState) -> dict:
                     title = r.get("title", "").strip()
                     norm = title.lower().strip()
                     norm_url = normalize_url(r.get("url", ""))
-                    if norm and norm not in seen_titles and norm_url not in seen_urls:
+                    if (norm and norm not in seen_titles
+                            and norm not in recent_titles_lower
+                            and norm_url not in seen_urls):
                         seen_titles.add(norm)
                         seen_urls.add(norm_url)
                         candidates.append({
@@ -261,88 +357,445 @@ def node_fetch_sources(state: PipelineState) -> dict:
 
     rss_count    = sum(1 for c in candidates if c["source"] == "rss")
     search_count = sum(1 for c in candidates if c["source"] == "tavily")
-    print(f"  > Fetched {len(candidates)} candidates ({rss_count} RSS, {search_count} search)")
+    print(f"  > Fetched {len(candidates)} candidates "
+          f"({rss_count} RSS, {search_count} search)")
     return {
         "candidates": candidates,
         "today_str": datetime.date.today().strftime("%Y-%m-%d"),
         "status": "running",
+        "recent_urls": list(recent_urls),
+        "recent_headlines": recent_headlines,
+        "react_iteration": 0,
+        "react_action": "",
+        "investigated": [],
+        "deep_scored": [],
     }
 
 
 # ---------------------------------------------------------------------------
-# Node 2: Agent Curator
+# Node 2: Triage — quick-scan, build shortlist (flash-lite, 1 call)
 # ---------------------------------------------------------------------------
-CURATOR_PROMPT = """\
-You are an expert AI news curator.
-Your audience is Data Scientists and Software Engineers who care about AI agents,
-LLMs, and the broader AI ecosystem.
+TRIAGE_PROMPT = """\
+You are an AI news curator. Quick-scan these article candidates and score each 1-10.
 
-Score EACH of the following articles on a scale of 1-10 for how relevant, timely,
-and technically interesting it is for this audience. Be strict.
+Audience: Data Scientists and Software Engineers who want PRACTICAL, ACTIONABLE
+AI/ML engineering content — not a product announcement feed.
 
 Return a JSON ARRAY of objects:
 [
   {{
     "title": "<exact title as given>",
     "score": <integer 1-10>,
-    "reason": "<one sentence: why this score>",
-    "category_hint": "release" | "technical" | "use-case" | "industry" | "research"
+    "reason": "<one sentence>"
   }}
 ]
 
-Rules:
-- Return ONLY a valid JSON array.
-- Score 8-10: Major model releases, breakthrough research, key agentic framework updates, OR deep technical case studies showing AI in production, infrastructure design, and concrete evaluation metrics.
-- Score 5-7: Interesting but not groundbreaking AI industry news, or general use-case overviews.
-- Score 1-4: Tangentially related, pure PR/marketing fluff with no technical details, or non-technical business announcements.
-- Penalise opinion pieces with no new information.
-- Do NOT penalise practical engineering articles (deployment stories, evaluation methods, data pipeline design) — these are highly valuable if they contain technical specifics.
-- If two articles cover the SAME story (same event, same announcement) from different sources, give the WEAKER one a score of 1 and note "duplicate of [other title]" in the reason. This is critical for deduplication.
+Scoring guide:
+- 8-10: Deep technical/practical content (production deployments, architecture,
+  evaluation, cost analysis, MLOps, real-world case studies), OR truly major
+  industry events (new flagship models, paradigm shifts).
+- 5-7: Interesting AI news with some technical substance.
+- 3-4: Minor product updates, version bumps, incremental features, funding rounds
+  with no technical angle.
+- 1-2: PR fluff, opinion with no data, tangentially related.
+
+RELEASE PENALTY: Minor releases (feature updates, v2.x patches, API additions,
+small model variants) should score 3-5 max. Only truly major releases score 8+.
+
+DEDUP: If two articles clearly cover the same story, score the weaker one 1.
 
 Articles:
 {articles_block}
 """
 
 
-def node_agent_curator(state: PipelineState) -> dict:
+def node_triage(state: PipelineState) -> dict:
     candidates = state["candidates"]
-    print(f"\n=== Step 2: Agent Curator - Scoring {len(candidates)} articles ===")
+    print(f"\n=== Step 2: Triage — scoring {len(candidates)} candidates ===")
+
     articles_block = ""
     for i, a in enumerate(candidates, 1):
-        articles_block += f"\n[{i}] Title: {a['title']}\nText: {a['body'][:500]}\n"
-    prompt = CURATOR_PROMPT.format(articles_block=articles_block)
+        articles_block += f"\n[{i}] Title: {a['title']}\nSnippet: {a['body'][:400]}\n"
+
+    prompt = TRIAGE_PROMPT.format(articles_block=articles_block)
     raw = gemini_call(MODEL_LITE, prompt, temperature=0.2)
     scored = parse_json(raw)
+
     if not isinstance(scored, list):
-        print("  Warning: Curator returned invalid data - using fallback")
-        return {
-            "scored": [
-                {"title": a["title"], "score": 5, "reason": "fallback",
-                 "category_hint": "technical", "link": a["link"], "body": a["body"]}
-                for a in candidates
-            ]
-        }
+        print("  Warning: Triage failed — using all candidates as shortlist")
+        return {"shortlist": candidates[:SHORTLIST_SIZE]}
+
+    # Map scores back to candidates
     candidate_map = {a["title"]: a for a in candidates}
-    result = []
+    scored_candidates = []
     for item in scored:
         original = candidate_map.get(item.get("title", ""))
         if original:
-            result.append({**item, "link": original["link"], "body": original["body"]})
-    print(f"  > Scored {len(result)} articles")
-    return {"scored": result}
+            scored_candidates.append({
+                **original,
+                "triage_score": item.get("score", 5),
+                "triage_reason": item.get("reason", ""),
+            })
+
+    # Sort by triage score, take top SHORTLIST_SIZE
+    scored_candidates.sort(key=lambda x: x.get("triage_score", 0), reverse=True)
+    shortlist = scored_candidates[:SHORTLIST_SIZE]
+
+    print(f"  > Shortlisted {len(shortlist)} articles "
+          f"(scores: {[a['triage_score'] for a in shortlist]})")
+    # Keep ALL scored candidates for potential ReAct expansion (sorted by score)
+    return {"shortlist": shortlist, "triage_scored": scored_candidates}
 
 
 # ---------------------------------------------------------------------------
-# Node 3: Agent Selector
+# Node 3: Investigate — Jina Reader full text (parallel HTTP)
 # ---------------------------------------------------------------------------
-SELECTOR_PROMPT = """\
+def node_investigate(state: PipelineState) -> dict:
+    shortlist = state["shortlist"]
+    # Build dedup set from already-investigated articles, keyed by normalized URL
+    # Filter out empty URLs to prevent false matches
+    already_investigated = {
+        normalize_url(a["link"])
+        for a in state.get("investigated", [])
+        if a.get("link", "").strip()
+    }
+    to_investigate = [
+        a for a in shortlist
+        if a.get("link", "").strip()
+        and normalize_url(a["link"]) not in already_investigated
+    ]
+
+    print(f"\n=== Step 3: Investigate — reading {len(to_investigate)} articles "
+          f"(already done: {len(already_investigated)}) ===")
+
+    def _read_one(article: dict) -> dict:
+        url = article.get("link", "")
+        full_text = read_article_jina(url) if url else None
+        if full_text:
+            return {**article, "full_text": full_text}
+        else:
+            print(f"    Fallback: RSS snippet for '{article['title'][:50]}'")
+            return {**article, "full_text": article.get("body", "")}
+
+    newly_investigated: list[dict] = []
+    with ThreadPoolExecutor(max_workers=INVESTIGATE_WORKERS) as executor:
+        futures = {executor.submit(_read_one, a): a for a in to_investigate}
+        for future in as_completed(futures):
+            try:
+                newly_investigated.append(future.result())
+            except Exception as exc:
+                article = futures[future]
+                print(f"    Warning: Failed to read '{article['title'][:40]}': {exc}")
+                newly_investigated.append({**article, "full_text": article.get("body", "")})
+
+    previous = state.get("investigated", [])
+    all_investigated = previous + newly_investigated
+    upgraded = sum(1 for a in newly_investigated if len(a.get("full_text", "")) > MAX_ARTICLE_CHARS)
+    print(f"  > Investigated: {upgraded}/{len(newly_investigated)} upgraded with full text, "
+          f"total pool: {len(all_investigated)}")
+    return {"investigated": all_investigated}
+
+
+# ---------------------------------------------------------------------------
+# Node 4: Deep Score — 2-axis scoring with full text (flash + thinking)
+# ---------------------------------------------------------------------------
+DEEP_SCORE_PROMPT = """\
+You are a senior AI/ML technical evaluator. Score this article on TWO independent axes.
+
+AXIS 1 — World Importance (世間的な重要度・温度感):
+How significant is this for the global AI/tech community?
+- 9-10: Industry-defining (new flagship model, major regulation, paradigm shift)
+- 7-8: Significant (major funding, notable research paper, important policy)
+- 5-6: Noteworthy but not major (company updates, smaller research)
+- 3-4: Minor (small updates, opinions, general commentary)
+- 1-2: Trivial or tangentially related
+
+AXIS 2 — Business Value (ビジネス活用度):
+How actionable and useful for DS/SE practitioners in their daily work?
+- 9-10: Directly implementable — specific architecture, code patterns, metrics, benchmarks
+- 7-8: Clear lessons, frameworks, or approaches applicable to real projects
+- 5-6: Useful context but no direct action items
+- 3-4: Awareness-only, no practical application
+- 1-2: No business relevance
+
+RELEASE ARTICLES:
+- If this is a minor release (feature update, version bump, API addition, small
+  model variant, pricing change): world_importance max 5, business_value max 4.
+- Only truly MAJOR releases (new flagship model family, paradigm-shifting
+  framework) deserve high scores.
+
+DUPLICATE CHECK against recent headlines:
+{recent_headlines_block}
+
+Return a single JSON object:
+{{
+  "world_importance": <int 1-10>,
+  "world_reason": "<one sentence>",
+  "business_value": <int 1-10>,
+  "business_reason": "<one sentence>",
+  "category": "release" | "technical" | "use-case" | "industry" | "research",
+  "release_magnitude": "major" | "minor" | "none",
+  "is_duplicate_of_recent": <bool>,
+  "duplicate_note": "<which recent headline, or empty>",
+  "key_insight": "<one sentence: what a practitioner would learn from this>"
+}}
+
+Article title: {title}
+Article text (first 6000 chars):
+{body}
+"""
+
+
+def _deep_score_one(
+    article: dict, index: int, total: int, recent_headlines_block: str,
+) -> dict | None:
+    """Score a single article on 2 axes. Runs in a thread."""
+    label = f"[{index+1}/{total}]"
+    print(f"\n  > {label} Scoring: {article['title'][:60]}...")
+    time.sleep(AGENT_SLEEP_SEC)
+
+    body_text = article.get("full_text", article.get("body", ""))
+    prompt = DEEP_SCORE_PROMPT.format(
+        title=article["title"],
+        body=body_text[:6000],
+        recent_headlines_block=recent_headlines_block,
+    )
+    raw = gemini_call(
+        MODEL_HEAVY, prompt,
+        temperature=0.2,
+        thinking_budget=THINKING_BUDGET_DEEP,
+    )
+    result = parse_json(raw)
+    if not isinstance(result, dict):
+        print(f"    {label} Warning: Deep score failed — using triage score")
+        triage = article.get("triage_score", 5)
+        return {
+            **article,
+            "world_importance": triage,
+            "world_reason": "(fallback: deep score failed)",
+            "business_value": triage,
+            "business_reason": "(fallback: deep score failed)",
+            "combined_score": triage,
+            "category": "technical",
+            "release_magnitude": "none",
+            "is_duplicate_of_recent": False,
+            "duplicate_note": "",
+            "key_insight": "",
+        }
+
+    world = result.get("world_importance", 5)
+    biz   = result.get("business_value", 5)
+
+    # Apply release penalty
+    if result.get("release_magnitude") == "minor":
+        world = min(world, 5)
+        biz   = min(biz, 4)
+
+    # Duplicate → score 0
+    if result.get("is_duplicate_of_recent"):
+        print(f"    {label} DUPLICATE of recent: {result.get('duplicate_note', '')}")
+        world = 0
+        biz   = 0
+
+    combined = round(WEIGHT_WORLD * world + WEIGHT_BUSINESS * biz, 2)
+    print(f"    {label} ✓ world={world} biz={biz} combined={combined} "
+          f"cat={result.get('category', '?')}")
+
+    return {
+        **article,
+        "world_importance": world,
+        "business_value": biz,
+        "combined_score": combined,
+        "category": result.get("category", "technical"),
+        "release_magnitude": result.get("release_magnitude", "none"),
+        "is_duplicate_of_recent": result.get("is_duplicate_of_recent", False),
+        "key_insight": result.get("key_insight", ""),
+        "world_reason": result.get("world_reason", ""),
+        "business_reason": result.get("business_reason", ""),
+    }
+
+
+def node_deep_score(state: PipelineState) -> dict:
+    investigated = state["investigated"]
+    already_scored_titles = {a["title"] for a in state.get("deep_scored", [])}
+    to_score = [a for a in investigated if a["title"] not in already_scored_titles]
+
+    print(f"\n=== Step 4: Deep Score — scoring {len(to_score)} articles "
+          f"(2-axis, thinking_budget={THINKING_BUDGET_DEEP}) ===")
+
+    recent_headlines = state.get("recent_headlines", [])
+    if recent_headlines:
+        recent_headlines_block = "\n".join(f"  - {h}" for h in recent_headlines[:20])
+    else:
+        recent_headlines_block = "  (none — first day)"
+
+    # Sequential scoring to respect rate limits, with controlled concurrency
+    results: list[tuple[int, dict | None]] = []
+    with ThreadPoolExecutor(max_workers=ENRICH_WORKERS) as executor:
+        futures = {
+            executor.submit(
+                _deep_score_one, article, i, len(to_score), recent_headlines_block,
+            ): i
+            for i, article in enumerate(to_score)
+        }
+        for future in as_completed(futures):
+            idx = futures[future]
+            try:
+                results.append((idx, future.result()))
+            except Exception as exc:
+                print(f"    Warning: Scoring article {idx+1} failed: {exc}")
+                results.append((idx, None))
+
+    results.sort(key=lambda x: x[0])
+    newly_scored = [r for _, r in results if r is not None]
+
+    # Filter out duplicates of recent articles
+    newly_scored = [a for a in newly_scored if not a.get("is_duplicate_of_recent")]
+
+    previous = state.get("deep_scored", [])
+    all_scored = previous + newly_scored
+    all_scored.sort(key=lambda x: x.get("combined_score", 0), reverse=True)
+
+    print(f"\n  > Deep scored: {len(newly_scored)} new, {len(all_scored)} total")
+    for a in all_scored[:8]:
+        print(f"    {a['combined_score']:.1f} [{a.get('category','?')[:3]}] "
+              f"{a['title'][:55]}")
+    return {"deep_scored": all_scored}
+
+
+# ---------------------------------------------------------------------------
+# Node 5: Reflect — self-critique, decide loop or finalize (ReAct core)
+# ---------------------------------------------------------------------------
+REFLECT_PROMPT = """\
+You are the editorial director reviewing curation results for an AI news digest.
+
+Current scored articles (sorted by combined score):
+{scored_summary}
+
+REQUIREMENTS for a good digest:
+- {n} articles total
+- MAX 1 release article (only if it's a truly major release, score >= 7)
+- MIN 2 practical/engineering articles (category = "use-case" or "technical")
+- Good category diversity (at least 3 different categories)
+- All articles should have combined_score >= 5.0
+- No duplicates with recent days
+
+Candidates still available but NOT yet investigated:
+  {remaining_count} candidates remain in the original pool.
+
+Answer these questions, then decide:
+1. Do we have at least {n} articles with combined_score >= 5.0?
+2. Do we have >= 2 practical/engineering articles with business_value >= 7?
+3. Is category diversity acceptable (>= 3 categories)?
+4. Any quality concerns?
+
+Return JSON:
+{{
+  "assessment": "<2-3 sentences summarizing quality>",
+  "quality_sufficient": <bool>,
+  "practical_count": <int — articles with category use-case/technical AND biz_value>=7>,
+  "category_count": <int — distinct categories in top {n}>,
+  "action": "finalize" | "investigate_more",
+  "expand_by": <int, how many more candidates to add if action=investigate_more, 0 otherwise>
+}}
+"""
+
+
+def node_reflect(state: PipelineState) -> dict:
+    deep_scored = state.get("deep_scored", [])
+    iteration = state.get("react_iteration", 0) + 1
+    candidates = state["candidates"]
+    shortlist = state["shortlist"]
+    shortlisted_titles = {a["title"] for a in shortlist}
+
+    remaining_count = sum(1 for c in candidates if c["title"] not in shortlisted_titles)
+
+    print(f"\n=== Step 5: Reflect — iteration {iteration}/{REACT_MAX_ITERATIONS} ===")
+
+    # Build scored summary for prompt
+    scored_summary = json.dumps(
+        [{
+            "title": a["title"][:60],
+            "combined_score": a.get("combined_score", 0),
+            "world_importance": a.get("world_importance", 0),
+            "business_value": a.get("business_value", 0),
+            "category": a.get("category", "?"),
+            "release_magnitude": a.get("release_magnitude", "none"),
+        } for a in deep_scored[:12]],
+        ensure_ascii=False, indent=2,
+    )
+
+    time.sleep(AGENT_SLEEP_SEC)
+    prompt = REFLECT_PROMPT.format(
+        scored_summary=scored_summary,
+        n=TARGET_ARTICLES,
+        remaining_count=remaining_count,
+    )
+    raw = gemini_call(MODEL_HEAVY, prompt, temperature=0.3, thinking_budget=4096)
+    reflection = parse_json(raw)
+
+    if not isinstance(reflection, dict):
+        print("  Warning: Reflect failed — proceeding to select")
+        return {"react_iteration": iteration, "react_action": "finalize"}
+
+    action = reflection.get("action", "finalize")
+    expand_by = reflection.get("expand_by", 0)
+    print(f"  > Assessment: {reflection.get('assessment', 'N/A')}")
+    print(f"  > Quality sufficient: {reflection.get('quality_sufficient')}")
+    print(f"  > Practical articles: {reflection.get('practical_count', '?')}")
+    print(f"  > Category diversity: {reflection.get('category_count', '?')} categories")
+    print(f"  > Action: {action} (expand_by={expand_by})")
+
+    # If agent wants more and we haven't hit max iterations
+    if action == "investigate_more" and iteration < REACT_MAX_ITERATIONS and remaining_count > 0:
+        # Expand shortlist with next-best candidates, sorted by triage score
+        expand_by = min(expand_by or 5, remaining_count, 5)
+        # Use triage_scored (pre-sorted by score) instead of raw candidates
+        triage_scored = state.get("triage_scored", [])
+        remaining = [
+            c for c in triage_scored
+            if c["title"] not in shortlisted_titles
+        ]
+        new_additions = remaining[:expand_by]
+        if not new_additions:
+            # triage_scored empty (e.g. triage fallback) — fall back to candidates
+            remaining_raw = [c for c in candidates if c["title"] not in shortlisted_titles]
+            new_additions = remaining_raw[:expand_by]
+        expanded_shortlist = shortlist + new_additions
+        print(f"  > Expanding shortlist by {len(new_additions)} "
+              f"(triage scores: {[a.get('triage_score', '?') for a in new_additions]}, "
+              f"total: {len(expanded_shortlist)})")
+        return {
+            "shortlist": expanded_shortlist,
+            "react_iteration": iteration,
+            "react_action": "investigate_more",
+        }
+
+    return {"react_iteration": iteration, "react_action": "finalize"}
+
+
+def should_continue_react(state: PipelineState) -> str:
+    """Conditional edge: loop back to investigate or proceed to select."""
+    if state.get("react_iteration", 0) >= REACT_MAX_ITERATIONS:
+        return "select"
+    if state.get("react_action") == "investigate_more":
+        return "investigate"
+    return "select"
+
+
+# ---------------------------------------------------------------------------
+# Node 6: Select — final selection with constraints (flash-lite, 1 call)
+# ---------------------------------------------------------------------------
+SELECT_PROMPT = """\
 You are an AI news editor. Select exactly {n} articles for today's digest.
 
-Selection criteria:
-1. Prefer high scores, but DO NOT pick {n} articles of the same category.
-2. Aim for category diversity: mix of "release", "technical", "research", "use-case", "industry".
-3. If two articles cover the same story, pick the better one only.
-4. Today's digest should feel like a well-rounded view of the AI ecosystem.
+HARD CONSTRAINTS:
+1. "release" category: MAX 1 article. Only if combined_score >= 7.0 AND
+   release_magnitude = "major". If no release qualifies, pick ZERO releases.
+2. "use-case" + "technical" combined: AT LEAST 2 articles.
+3. Category diversity: at least 3 different categories among the {n} picks.
+4. Prefer higher combined_score, but respect the constraints above.
+5. No two articles about substantially the same topic.
 
 Return a JSON array of exactly {n} objects:
 [
@@ -353,72 +806,78 @@ Return a JSON array of exactly {n} objects:
   }}
 ]
 
-Rules: Return ONLY a valid JSON array. Exactly {n} items.
-
-Scored articles:
+Scored articles (sorted by combined_score):
 {scored_block}
 """
 
 
-def node_agent_selector(state: PipelineState) -> dict:
-    scored = state["scored"]
+def node_select(state: PipelineState) -> dict:
+    deep_scored = state.get("deep_scored", [])
     n = TARGET_ARTICLES
-    print(f"\n=== Step 3: Agent Selector - Picking {n} from {len(scored)} ===")
+
+    print(f"\n=== Step 6: Select — picking {n} from {len(deep_scored)} scored ===")
     time.sleep(AGENT_SLEEP_SEC)
+
     scored_block = json.dumps(
-        [{"title": s["title"], "score": s.get("score", 5),
-          "reason": s.get("reason", ""), "category_hint": s.get("category_hint", "")}
-         for s in scored],
+        [{
+            "title": a["title"],
+            "combined_score": a.get("combined_score", 0),
+            "world_importance": a.get("world_importance", 0),
+            "business_value": a.get("business_value", 0),
+            "category": a.get("category", "technical"),
+            "release_magnitude": a.get("release_magnitude", "none"),
+            "key_insight": a.get("key_insight", ""),
+        } for a in deep_scored[:15]],
         ensure_ascii=False, indent=2,
     )
-    prompt = SELECTOR_PROMPT.format(n=n, scored_block=scored_block)
+
+    prompt = SELECT_PROMPT.format(n=n, scored_block=scored_block)
     raw = gemini_call(MODEL_LITE, prompt, temperature=0.3)
     selected_meta = parse_json(raw)
+
     if not isinstance(selected_meta, list):
-        print("  Warning: Selector returned invalid data - using top-scored")
-        top = sorted(scored, key=lambda x: x.get("score", 0), reverse=True)[:n]
-        return {"selected": [{**a, "category": a.get("category_hint", "technical")} for a in top]}
-    scored_map = {s["title"]: s for s in scored}
+        print("  Warning: Selector failed — using top combined_score")
+        top = deep_scored[:n]
+        return {"selected": [{
+            **a, "category": a.get("category", "technical"),
+        } for a in top]}
+
+    scored_map = {a["title"]: a for a in deep_scored}
     result = []
     for item in selected_meta[:n]:
         original = scored_map.get(item.get("title", ""))
         if original:
             result.append({
-                "title": original["title"], "link": original["link"],
-                "body": original["body"],
+                "title": original["title"],
+                "link": original.get("link", ""),
+                "body": original.get("full_text", original.get("body", "")),
                 "category": item.get("category", "technical"),
                 "selection_reason": item.get("selection_reason", ""),
             })
-    print(f"  > Selected {len(result)} articles")
-    return {"selected": result}
+
+    print(f"  > Selected {len(result)} articles:")
+    for a in result:
+        print(f"    [{a['category'][:3]}] {a['title'][:60]}")
+
+    # --- State GC: strip heavy full_text from investigated/deep_scored ---
+    # These are no longer needed; selected articles already carry their body.
+    selected_titles = {a["title"] for a in result}
+    gc_investigated = [
+        {k: v for k, v in a.items() if k != "full_text"}
+        for a in state.get("investigated", [])
+        if a["title"] not in selected_titles
+    ]
+    gc_deep_scored = [
+        {k: v for k, v in a.items() if k != "full_text"}
+        for a in state.get("deep_scored", [])
+    ]
+    print(f"  > GC: stripped full_text from {len(gc_investigated)} investigated + "
+          f"{len(gc_deep_scored)} scored articles")
+    return {"selected": result, "investigated": gc_investigated, "deep_scored": gc_deep_scored}
 
 
 # ---------------------------------------------------------------------------
-# Node 4: Deep Reader (Jina)
-# ---------------------------------------------------------------------------
-def node_deep_reader(state: PipelineState) -> dict:
-    """Read full articles via Jina Reader. Falls back to RSS snippet on failure (Fix #3)."""
-    selected = state["selected"]
-    print(f"\n=== Step 4: Deep Reader - Fetching full content for {len(selected)} articles ===")
-    enriched = []
-    for article in selected:
-        url = article.get("link", "")
-        if url:
-            full_text = read_article_jina(url)
-            if full_text:
-                enriched.append({**article, "body": full_text})
-                print(f"    OK: Full content ({len(full_text)} chars)")
-                continue
-            else:
-                print(f"    Fallback: Using RSS snippet for '{article['title'][:50]}'")
-        enriched.append(article)
-    upgraded = sum(1 for a in enriched if len(a.get("body", "")) > MAX_ARTICLE_CHARS)
-    print(f"  > Deep read complete: {upgraded}/{len(enriched)} upgraded, {len(enriched)-upgraded} using RSS fallback")
-    return {"selected": enriched}
-
-
-# ---------------------------------------------------------------------------
-# Node 5: Agent Enricher (Summarizer + English Coach)
+# Node 7: Agent Enricher (Summarizer + English Coach)
 # ---------------------------------------------------------------------------
 SUMMARIZER_PROMPT = """\
 You are a senior AI researcher writing for Data Scientists and Software Engineers.
@@ -479,7 +938,6 @@ def _enrich_single_article(article: dict, index: int, total: int) -> dict | None
     label = f"[{index+1}/{total}]"
     print(f"\n  > {label} {article['title'][:60]}...")
 
-    # --- Agent 3: Summarizer (sends article body to Gemini, NOT the State) ---
     time.sleep(AGENT_SLEEP_SEC)
     summary_prompt = SUMMARIZER_PROMPT.format(
         category=article.get("category", "technical"),
@@ -488,14 +946,13 @@ def _enrich_single_article(article: dict, index: int, total: int) -> dict | None
     summary_raw = gemini_call(MODEL_HEAVY, summary_prompt, temperature=0.4)
     summary = parse_json(summary_raw)
     if not isinstance(summary, dict):
-        print(f"    {label} Warning: Summarizer failed - skipping")
+        print(f"    {label} Warning: Summarizer failed — skipping")
         return None
     required_fields = ("headline", "one_liner", "detailed_summary")
     if not all(isinstance(summary.get(k), str) for k in required_fields):
-        print(f"    {label} Warning: Summarizer missing fields - skipping")
+        print(f"    {label} Warning: Summarizer missing fields — skipping")
         return None
 
-    # --- Agent 4: English Coach (uses summary, NOT full body) ---
     time.sleep(AGENT_SLEEP_SEC)
     coach_prompt = ENGLISH_COACH_PROMPT.format(
         used_terms_list="(deduped after collection)",
@@ -509,7 +966,7 @@ def _enrich_single_article(article: dict, index: int, total: int) -> dict | None
         print(f"    {label} Warning: EnglishCoach failed")
         coaching = {"vocabulary": [], "discussion_question": ""}
 
-    print(f"    {label} OK: enriched")
+    print(f"    {label} ✓ enriched")
     return {
         "headline":            summary.get("headline", article["title"]),
         "one_liner":           summary.get("one_liner", ""),
@@ -523,20 +980,10 @@ def _enrich_single_article(article: dict, index: int, total: int) -> dict | None
 
 
 def node_agent_enricher(state: PipelineState) -> dict:
-    """Agent 3+4: Concurrent enrichment with ThreadPoolExecutor (Fix #4).
-
-    Why ThreadPoolExecutor instead of LangGraph Send API:
-    - Send API creates separate subgraph states that can't easily share
-      used_vocab_terms across parallel branches.
-    - With Gemini's 15 RPM limit, we want controlled concurrency (2 workers),
-      not unbounded fan-out. ThreadPoolExecutor gives us that control.
-    - The vocabulary dedup is applied AFTER collection (fan-in), which is
-      simpler and avoids race conditions.
-    """
     selected = state["selected"]
-    print(f"\n=== Step 5: Agent Enricher - Processing {len(selected)} articles (workers={ENRICH_WORKERS}) ===")
+    print(f"\n=== Step 7: Enricher — processing {len(selected)} articles "
+          f"(workers={ENRICH_WORKERS}) ===")
 
-    # --- Concurrent enrichment (Fix #4) ---
     results: list[tuple[int, dict | None]] = []
     with ThreadPoolExecutor(max_workers=ENRICH_WORKERS) as executor:
         futures = {
@@ -552,11 +999,10 @@ def node_agent_enricher(state: PipelineState) -> dict:
                 print(f"    Warning: Article {idx+1} raised exception: {exc}")
                 results.append((idx, None))
 
-    # Preserve original order, filter failures
     results.sort(key=lambda x: x[0])
     final_articles = [r for _, r in results if r is not None]
 
-    # --- Vocabulary dedup across all articles (fan-in phase) ---
+    # Vocabulary dedup across all articles
     used_vocab_terms: set[str] = set(state.get("used_vocab_terms", []))
     for article in final_articles:
         deduped = []
@@ -567,26 +1013,22 @@ def node_agent_enricher(state: PipelineState) -> dict:
                 deduped.append(v)
         article["vocabulary"] = deduped
 
-    # --- Strip raw body from State to free memory (Fix #1) ---
-    # The heavy article text was only needed for Gemini prompts (already sent).
-    # final_articles only contain lightweight summary JSON, not the 40k-char bodies.
-
     print(f"\n  > Enrichment complete: {len(final_articles)}/{len(selected)} articles")
     return {
         "final_articles": final_articles,
         "used_vocab_terms": list(used_vocab_terms),
         "output_json": final_articles,
-        "selected": [],  # (Fix #1) Clear heavy body text from State
+        "selected": [],
     }
 
 
 # ---------------------------------------------------------------------------
-# Node 6: Build Output
+# Node 8: Build Output
 # ---------------------------------------------------------------------------
 def node_build_output(state: PipelineState) -> dict:
     final_articles = state["final_articles"]
     today_str = state["today_str"]
-    print(f"\n=== Step 6: Build Output - {len(final_articles)} articles ===")
+    print(f"\n=== Step 8: Build Output — {len(final_articles)} articles ===")
     save_archive(today_str, final_articles)
     cleanup_old_archives()
     archives = load_archives()
@@ -594,7 +1036,7 @@ def node_build_output(state: PipelineState) -> dict:
     html = build_html(archives)
     with open(OUTPUT_FILE, "w", encoding="utf-8") as f:
         f.write(html)
-    print(f"  OK: Wrote {OUTPUT_FILE} with {len(archives)} days of archives")
+    print(f"  ✓ Wrote {OUTPUT_FILE} with {len(archives)} days of archives")
     return {"status": "success"}
 
 
@@ -611,56 +1053,62 @@ def node_write_fallback(state: PipelineState) -> dict:
 def check_candidates(state: PipelineState) -> str:
     count = len(state.get("candidates", []))
     if count < MIN_ARTICLES:
-        print(f"  X Only {count} candidates - routing to fallback")
+        print(f"  ✗ Only {count} candidates — routing to fallback")
         return "fallback"
     return "continue"
 
-def check_scored(state: PipelineState) -> str:
-    count = len(state.get("scored", []))
-    if count < MIN_ARTICLES:
-        print(f"  X Only {count} scored articles - routing to fallback")
-        return "fallback"
-    return "continue"
 
 def check_selected(state: PipelineState) -> str:
     count = len(state.get("selected", []))
     if count < MIN_ARTICLES:
-        print(f"  X Only {count} selected articles - routing to fallback")
+        print(f"  ✗ Only {count} selected — routing to fallback")
         return "fallback"
     return "continue"
+
 
 def check_enriched(state: PipelineState) -> str:
     count = len(state.get("final_articles", []))
     if count < MIN_ARTICLES:
-        print(f"  X Only {count} enriched articles - routing to fallback")
+        print(f"  ✗ Only {count} enriched — routing to fallback")
         return "fallback"
     return "continue"
 
 
 # ---------------------------------------------------------------------------
-# Graph Construction (LangGraph)
+# Graph Construction (LangGraph with ReAct curation loop)
 # ---------------------------------------------------------------------------
 def build_pipeline() -> StateGraph:
     workflow = StateGraph(PipelineState)
-    workflow.add_node("fetch_sources",   node_fetch_sources)
-    workflow.add_node("agent_curator",   node_agent_curator)
-    workflow.add_node("agent_selector",  node_agent_selector)
-    workflow.add_node("deep_reader",     node_deep_reader)
-    workflow.add_node("agent_enricher",  node_agent_enricher)
-    workflow.add_node("build_output",    node_build_output)
-    workflow.add_node("write_fallback",  node_write_fallback)
+
+    workflow.add_node("fetch_sources",  node_fetch_sources)
+    workflow.add_node("triage",         node_triage)
+    workflow.add_node("investigate",    node_investigate)
+    workflow.add_node("deep_score",     node_deep_score)
+    workflow.add_node("reflect",        node_reflect)
+    workflow.add_node("select",         node_select)
+    workflow.add_node("enricher",       node_agent_enricher)
+    workflow.add_node("build_output",   node_build_output)
+    workflow.add_node("write_fallback", node_write_fallback)
+
     workflow.set_entry_point("fetch_sources")
+
     workflow.add_conditional_edges("fetch_sources", check_candidates, {
-        "continue": "agent_curator", "fallback": "write_fallback",
+        "continue": "triage", "fallback": "write_fallback",
     })
-    workflow.add_conditional_edges("agent_curator", check_scored, {
-        "continue": "agent_selector", "fallback": "write_fallback",
+    workflow.add_edge("triage", "investigate")
+    workflow.add_edge("investigate", "deep_score")
+    workflow.add_edge("deep_score", "reflect")
+
+    # ReAct loop: reflect decides whether to loop or finalize
+    workflow.add_conditional_edges("reflect", should_continue_react, {
+        "investigate": "investigate",
+        "select": "select",
     })
-    workflow.add_conditional_edges("agent_selector", check_selected, {
-        "continue": "deep_reader", "fallback": "write_fallback",
+
+    workflow.add_conditional_edges("select", check_selected, {
+        "continue": "enricher", "fallback": "write_fallback",
     })
-    workflow.add_edge("deep_reader", "agent_enricher")
-    workflow.add_conditional_edges("agent_enricher", check_enriched, {
+    workflow.add_conditional_edges("enricher", check_enriched, {
         "continue": "build_output", "fallback": "write_fallback",
     })
     workflow.add_edge("build_output",  END)
@@ -678,6 +1126,7 @@ def save_archive(date_str: str, articles: list[dict]):
         json.dump({"date": date_str, "articles": articles}, f, ensure_ascii=False, indent=2)
     print(f"  > Saved archive: {filepath}")
 
+
 def load_archives() -> list[dict]:
     archives = []
     for fp in sorted(glob.glob(os.path.join(ARCHIVE_DIR, "*.json")), reverse=True):
@@ -687,6 +1136,7 @@ def load_archives() -> list[dict]:
         except Exception as exc:
             print(f"  Warning: Error loading {fp}: {exc}")
     return archives
+
 
 def cleanup_old_archives():
     cutoff = datetime.date.today() - datetime.timedelta(days=ARCHIVE_DAYS)
@@ -701,12 +1151,11 @@ def cleanup_old_archives():
 
 
 # ---------------------------------------------------------------------------
-# HTML Generation
+# HTML Generation (unchanged from v5.0)
 # ---------------------------------------------------------------------------
 def build_html(archives: list[dict]) -> str:
     today_display = datetime.date.today().strftime("%B %d, %Y")
     archives_json = json.dumps(archives, ensure_ascii=False)
-    # The HTML template uses {{ and }} for CSS/JS braces (escaped for f-string)
     return f"""<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -831,8 +1280,8 @@ footer{{border-top:1px solid var(--border);margin-top:3rem;padding:1.5rem 0 2rem
     </div>
   </main>
   <footer>
-    AI Agent Daily Digest &mdash; LangGraph multi-agent pipeline &bull; Gemini &bull; GitHub Actions
-    <div class="pipeline-badge">v5.0 &middot; LangGraph StateGraph &middot; Jina Reader &middot; 4-agent pipeline</div>
+    AI Agent Daily Digest &mdash; ReAct multi-agent pipeline &bull; Gemini &bull; GitHub Actions
+    <div class="pipeline-badge">v6.0 &middot; LangGraph ReAct &middot; 2-axis scoring &middot; Jina Reader &middot; 6-agent pipeline</div>
   </footer>
 </div>
 <script>
@@ -940,16 +1389,20 @@ def build_fallback_html() -> str:
 # ---------------------------------------------------------------------------
 def main():
     print("=" * 60)
-    print("  AI Agent Daily Digest - v5.0 (LangGraph Pipeline)")
+    print("  AI Agent Daily Digest — v6.0 (ReAct Curation Pipeline)")
     print("=" * 60)
 
     workflow = build_pipeline()
     app = workflow.compile()
 
     initial_state: PipelineState = {
-        "candidates": [], "scored": [], "selected": [],
-        "final_articles": [], "used_vocab_terms": [],
-        "today_str": "", "status": "running", "output_json": [],
+        "candidates": [], "today_str": "", "status": "running",
+        "recent_urls": [], "recent_headlines": [],
+        "triage_scored": [],
+        "shortlist": [], "investigated": [], "deep_scored": [],
+        "react_iteration": 0, "react_action": "",
+        "selected": [], "final_articles": [],
+        "used_vocab_terms": [], "output_json": [],
     }
 
     final_state = None
@@ -959,12 +1412,13 @@ def main():
     print("\n" + "=" * 60)
     if final_state and final_state.get("status") == "success":
         articles = final_state.get("output_json", [])
-        print(f"  OK: Pipeline SUCCESS - {len(articles)} articles published")
-        print(f"  OK: HTML: {OUTPUT_FILE}")
-        print(f"  OK: Archive: {ARCHIVE_DIR}/")
-        # output_json is ready for downstream: Slack, DB, API, etc.
+        iterations = final_state.get("react_iteration", 0)
+        print(f"  ✓ Pipeline SUCCESS — {len(articles)} articles published")
+        print(f"  ✓ ReAct iterations: {iterations}")
+        print(f"  ✓ HTML: {OUTPUT_FILE}")
+        print(f"  ✓ Archive: {ARCHIVE_DIR}/")
     else:
-        print("  Warning: Pipeline completed with fallback")
+        print("  ⚠ Pipeline completed with fallback")
     print("=" * 60)
 
 
