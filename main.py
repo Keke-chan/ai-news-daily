@@ -1,8 +1,9 @@
 """
-AI Agent Daily Digest — v6.0 (ReAct Curation Pipeline)
+AI Agent Daily Digest — v7.0 (Human-in-the-Loop Curation)
 
-Architecture (LangGraph StateGraph with ReAct loop):
+Architecture (LangGraph StateGraph with HITL via interrupt + Checkpoint):
 
+  === Phase: generate ===
   [Fetch Sources]  RSS + Tavily + cross-day dedup
          |
   [Triage]         Agent 1: Quick-scan all candidates       (flash-lite, 1 call)
@@ -15,28 +16,47 @@ Architecture (LangGraph StateGraph with ReAct loop):
   │      |
   └──< if needs more candidates, loop back to Investigate >
          |
+  [Human Review]   interrupt() — exports candidates JSON, waits for feedback
+         |         ★ Graph state persisted via SqliteSaver checkpoint
+
+  === Phase: publish (resumed with human feedback) ===
+  [Human Review]   ← resume with Command(resume=feedback)
+         |         Applies approve/reject, boosts score, saves preference
   [Select]         Agent 4: Final pick with constraints     (flash-lite, 1 call)
          |
   [Enricher]       Agent 5+6: Summary + Vocab per article   (flash, 2N calls)
          |
-  [Build Output]   HTML + JSON archive
+  [Build Output]   HTML + JSON archive + feedback history
+
+  === Phase: auto (legacy — no human review) ===
+  Full pipeline without interrupt, same as v6.0.
+
+Usage:
+  python main.py --phase generate   # Run 1: fetch + score → wait for review
+  python main.py --phase publish --feedback '{"approved":[...],"rejected":[...]}'
+  python main.py --phase auto        # Full auto (no HITL)
 
 Estimated cost: ~$0.05-0.10/day ≈ ~300-500 yen/month (Gemini 2.5 Flash)
 """
 
 import os
+import sys
 import json
 import glob
 import time
+import argparse
 import datetime
 import re
 from typing import TypedDict
+from collections import Counter
 from urllib.parse import urlparse, urlunparse, parse_qs, urlencode
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import feedparser
 import requests
 from langgraph.graph import StateGraph, END
+from langgraph.types import interrupt, Command
+from langgraph.checkpoint.sqlite import SqliteSaver
 
 
 # ---------------------------------------------------------------------------
@@ -82,6 +102,14 @@ ARCHIVE_DIR         = "archives"
 ARCHIVE_DAYS        = 30
 OUTPUT_FILE         = "index.html"
 
+# Human-in-the-Loop config
+CHECKPOINT_DIR      = "checkpoints"
+CHECKPOINT_DB       = os.path.join(CHECKPOINT_DIR, "curation.db")
+CANDIDATES_DIR      = "candidates"
+FEEDBACK_DIR        = "feedback"
+FEEDBACK_LOOKBACK   = 14          # days of feedback to inject into prompts
+HUMAN_APPROVE_BOOST = 2.0         # score bonus for human-approved articles
+
 # ReAct curation config
 DEDUP_LOOKBACK_DAYS   = 3
 REACT_MAX_ITERATIONS  = 2
@@ -125,6 +153,9 @@ class PipelineState(TypedDict, total=False):
     deep_scored:       list[dict]     # after 2-axis scoring (accumulates)
     react_iteration:   int            # 0-based, incremented by reflect
     react_action:      str            # "investigate_more" | "finalize"
+    # Human-in-the-Loop
+    preference_context: str           # injected user preference summary
+    feedback_history:  list[dict]     # accumulated approve/reject history
     # Selection & enrichment
     selected:          list[dict]
     final_articles:    list[dict]
@@ -265,6 +296,86 @@ def load_recent_article_fingerprints(
     return recent_urls, recent_headlines
 
 
+def load_user_preferences(lookback_days: int = FEEDBACK_LOOKBACK) -> str:
+    """Build a preference context string from past feedback history.
+
+    Reads feedback/<date>.json files and summarises which categories /
+    score ranges the user tends to approve or reject.
+    """
+    approved_cats: Counter = Counter()
+    rejected_cats: Counter = Counter()
+    approved_biz: list[float] = []
+    rejected_biz: list[float] = []
+    today = datetime.date.today()
+
+    for days_ago in range(1, lookback_days + 1):
+        date_str = (today - datetime.timedelta(days=days_ago)).strftime("%Y-%m-%d")
+        filepath = os.path.join(FEEDBACK_DIR, f"{date_str}.json")
+        if not os.path.exists(filepath):
+            continue
+        try:
+            with open(filepath, "r", encoding="utf-8") as f:
+                fb = json.load(f)
+            for a in fb.get("approved", []):
+                approved_cats[a.get("category", "?")] += 1
+                if "business_value" in a:
+                    approved_biz.append(a["business_value"])
+            for a in fb.get("rejected", []):
+                rejected_cats[a.get("category", "?")] += 1
+                if "business_value" in a:
+                    rejected_biz.append(a["business_value"])
+        except Exception as exc:
+            print(f"  Warning: Error loading feedback {filepath}: {exc}")
+
+    if not approved_cats and not rejected_cats:
+        return ""
+
+    avg_app_biz = (sum(approved_biz) / len(approved_biz)) if approved_biz else 0
+    avg_rej_biz = (sum(rejected_biz) / len(rejected_biz)) if rejected_biz else 0
+
+    lines = [
+        f"USER PREFERENCE (last {lookback_days} days):",
+        f"  Frequently approved categories: {approved_cats.most_common(3)}",
+        f"  Frequently rejected categories: {rejected_cats.most_common(3)}",
+        f"  Avg business_value of approved: {avg_app_biz:.1f}",
+        f"  Avg business_value of rejected: {avg_rej_biz:.1f}",
+        "  Bias scoring toward the user's demonstrated preferences.",
+    ]
+    return "\n".join(lines)
+
+
+def save_feedback(date_str: str, approved: list[dict], rejected: list[dict]):
+    """Persist today's human feedback for preference learning."""
+    os.makedirs(FEEDBACK_DIR, exist_ok=True)
+    filepath = os.path.join(FEEDBACK_DIR, f"{date_str}.json")
+    with open(filepath, "w", encoding="utf-8") as f:
+        json.dump({"date": date_str, "approved": approved, "rejected": rejected},
+                  f, ensure_ascii=False, indent=2)
+    print(f"  > Saved feedback: {filepath}")
+
+
+def export_candidates_json(date_str: str, deep_scored: list[dict]):
+    """Export scored candidates for the review UI to consume."""
+    os.makedirs(CANDIDATES_DIR, exist_ok=True)
+    filepath = os.path.join(CANDIDATES_DIR, f"{date_str}.json")
+    # Strip heavy full_text from export
+    export = [{
+        "title": a["title"],
+        "link": a.get("link", ""),
+        "combined_score": a.get("combined_score", 0),
+        "world_importance": a.get("world_importance", 0),
+        "business_value": a.get("business_value", 0),
+        "category": a.get("category", "technical"),
+        "release_magnitude": a.get("release_magnitude", "none"),
+        "key_insight": a.get("key_insight", ""),
+        "triage_score": a.get("triage_score", 0),
+        "body": a.get("body", "")[:500],
+    } for a in deep_scored[:15]]
+    with open(filepath, "w", encoding="utf-8") as f:
+        json.dump({"date": date_str, "candidates": export}, f, ensure_ascii=False, indent=2)
+    print(f"  > Exported candidates: {filepath} ({len(export)} articles)")
+
+
 # ---------------------------------------------------------------------------
 # Node 1: Fetch Sources (RSS + optional Tavily + cross-day dedup)
 # ---------------------------------------------------------------------------
@@ -365,6 +476,7 @@ def node_fetch_sources(state: PipelineState) -> dict:
         "status": "running",
         "recent_urls": list(recent_urls),
         "recent_headlines": recent_headlines,
+        "preference_context": load_user_preferences(),
         "react_iteration": 0,
         "react_action": "",
         "investigated": [],
@@ -784,6 +896,88 @@ def should_continue_react(state: PipelineState) -> str:
 
 
 # ---------------------------------------------------------------------------
+# Node 5.5: Human Review — interrupt() for HITL (only in generate phase)
+# ---------------------------------------------------------------------------
+def node_human_review(state: PipelineState) -> dict:
+    """Pause the graph and present candidates to the human for review.
+
+    In 'generate' mode this node calls interrupt(), which:
+    1. Exports candidates/<date>.json for the review UI.
+    2. Persists full State via SqliteSaver checkpoint.
+    3. Halts the graph — the process exits.
+
+    When the graph is later resumed with Command(resume=feedback),
+    the feedback dict is returned by interrupt() and processed here.
+    """
+    deep_scored = state.get("deep_scored", [])
+    today_str = state["today_str"]
+
+    print(f"\n=== Step 5.5: Human Review — {len(deep_scored)} candidates ===")
+
+    # Export candidates for the review UI before interrupting
+    export_candidates_json(today_str, deep_scored)
+
+    # Prepare the review payload shown to the human
+    review_payload = [{
+        "title": a["title"],
+        "combined_score": a.get("combined_score", 0),
+        "world_importance": a.get("world_importance", 0),
+        "business_value": a.get("business_value", 0),
+        "category": a.get("category", "technical"),
+        "key_insight": a.get("key_insight", ""),
+    } for a in deep_scored[:15]]
+
+    # ★ Graph pauses here. State is checkpointed.
+    # Returns when resumed with Command(resume=feedback_dict).
+    human_feedback = interrupt(review_payload)
+
+    # --- Resumed: process human feedback ---
+    approved_titles = set(human_feedback.get("approved", []))
+    rejected_titles = set(human_feedback.get("rejected", []))
+
+    print(f"  > Human feedback: {len(approved_titles)} approved, "
+          f"{len(rejected_titles)} rejected")
+
+    # Build detailed records for feedback persistence
+    approved_records = []
+    rejected_records = []
+    reviewed_articles = []
+
+    for a in deep_scored:
+        title = a["title"]
+        record = {
+            "title": title,
+            "category": a.get("category", "technical"),
+            "combined_score": a.get("combined_score", 0),
+            "business_value": a.get("business_value", 0),
+        }
+        if title in approved_titles:
+            a["human_approved"] = True
+            a["combined_score"] = a.get("combined_score", 0) + HUMAN_APPROVE_BOOST
+            reviewed_articles.append(a)
+            approved_records.append(record)
+        elif title in rejected_titles:
+            rejected_records.append(record)
+            # Explicitly rejected — excluded from pool
+        else:
+            # Neither approved nor rejected — keep in pool at original score
+            reviewed_articles.append(a)
+
+    # Re-sort by combined score (human-approved articles float to top)
+    reviewed_articles.sort(
+        key=lambda x: x.get("combined_score", 0), reverse=True,
+    )
+
+    # Persist feedback for preference learning
+    save_feedback(today_str, approved_records, rejected_records)
+
+    print(f"  > Pool after review: {len(reviewed_articles)} articles "
+          f"(top score: {reviewed_articles[0]['combined_score']:.1f})")
+
+    return {"deep_scored": reviewed_articles}
+
+
+# ---------------------------------------------------------------------------
 # Node 6: Select — final selection with constraints (flash-lite, 1 call)
 # ---------------------------------------------------------------------------
 SELECT_PROMPT = """\
@@ -1077,7 +1271,14 @@ def check_enriched(state: PipelineState) -> str:
 # ---------------------------------------------------------------------------
 # Graph Construction (LangGraph with ReAct curation loop)
 # ---------------------------------------------------------------------------
-def build_pipeline() -> StateGraph:
+def build_pipeline(enable_hitl: bool = False) -> StateGraph:
+    """Build the curation pipeline graph.
+
+    Args:
+        enable_hitl: If True, insert a human_review node (with interrupt())
+                     between the ReAct loop and Select.  If False, the
+                     pipeline runs fully automatically (v6 behaviour).
+    """
     workflow = StateGraph(PipelineState)
 
     workflow.add_node("fetch_sources",  node_fetch_sources)
@@ -1085,6 +1286,8 @@ def build_pipeline() -> StateGraph:
     workflow.add_node("investigate",    node_investigate)
     workflow.add_node("deep_score",     node_deep_score)
     workflow.add_node("reflect",        node_reflect)
+    if enable_hitl:
+        workflow.add_node("human_review", node_human_review)
     workflow.add_node("select",         node_select)
     workflow.add_node("enricher",       node_agent_enricher)
     workflow.add_node("build_output",   node_build_output)
@@ -1100,10 +1303,18 @@ def build_pipeline() -> StateGraph:
     workflow.add_edge("deep_score", "reflect")
 
     # ReAct loop: reflect decides whether to loop or finalize
-    workflow.add_conditional_edges("reflect", should_continue_react, {
-        "investigate": "investigate",
-        "select": "select",
-    })
+    if enable_hitl:
+        # After ReAct loop → human review → select
+        workflow.add_conditional_edges("reflect", should_continue_react, {
+            "investigate": "investigate",
+            "select": "human_review",
+        })
+        workflow.add_edge("human_review", "select")
+    else:
+        workflow.add_conditional_edges("reflect", should_continue_react, {
+            "investigate": "investigate",
+            "select": "select",
+        })
 
     workflow.add_conditional_edges("select", check_selected, {
         "continue": "enricher", "fallback": "write_fallback",
@@ -1280,8 +1491,8 @@ footer{{border-top:1px solid var(--border);margin-top:3rem;padding:1.5rem 0 2rem
     </div>
   </main>
   <footer>
-    AI Agent Daily Digest &mdash; ReAct multi-agent pipeline &bull; Gemini &bull; GitHub Actions
-    <div class="pipeline-badge">v6.0 &middot; LangGraph ReAct &middot; 2-axis scoring &middot; Jina Reader &middot; 6-agent pipeline</div>
+    AI Agent Daily Digest &mdash; Human-in-the-Loop pipeline &bull; Gemini &bull; GitHub Actions
+    <div class="pipeline-badge">v7.0 &middot; LangGraph HITL &middot; 2-axis scoring &middot; Jina Reader &middot; 6-agent pipeline + human review</div>
   </footer>
 </div>
 <script>
@@ -1387,20 +1598,125 @@ def build_fallback_html() -> str:
 # ---------------------------------------------------------------------------
 # Main Entry Point
 # ---------------------------------------------------------------------------
-def main():
+def make_thread_config(today_str: str | None = None) -> dict:
+    """Create a LangGraph config with a deterministic thread_id per day."""
+    if not today_str:
+        today_str = datetime.date.today().strftime("%Y-%m-%d")
+    return {"configurable": {"thread_id": f"curation-{today_str}"}}
+
+
+def run_generate():
+    """Phase 1: Fetch → Triage → Investigate → Deep Score → Reflect → interrupt().
+
+    State is persisted via SqliteSaver.  The graph halts at
+    node_human_review's interrupt() call and the process exits.
+    Candidates are exported to candidates/<date>.json for the review UI.
+    """
     print("=" * 60)
-    print("  AI Agent Daily Digest — v6.0 (ReAct Curation Pipeline)")
+    print("  AI Agent Daily Digest — v7.0  [phase: generate]")
     print("=" * 60)
 
-    workflow = build_pipeline()
+    os.makedirs(CHECKPOINT_DIR, exist_ok=True)
+
+    with SqliteSaver.from_conn_string(CHECKPOINT_DB) as checkpointer:
+        workflow = build_pipeline(enable_hitl=True)
+        app = workflow.compile(checkpointer=checkpointer)
+
+        today_str = datetime.date.today().strftime("%Y-%m-%d")
+        config = make_thread_config(today_str)
+
+        initial_state: PipelineState = {
+            "candidates": [], "today_str": "", "status": "running",
+            "recent_urls": [], "recent_headlines": [],
+            "preference_context": "",
+            "triage_scored": [],
+            "shortlist": [], "investigated": [], "deep_scored": [],
+            "react_iteration": 0, "react_action": "",
+            "feedback_history": [],
+            "selected": [], "final_articles": [],
+            "used_vocab_terms": [], "output_json": [],
+        }
+
+        # Stream until interrupt() halts the graph
+        for state_snapshot in app.stream(initial_state, config, stream_mode="values"):
+            pass
+
+    print("\n" + "=" * 60)
+    print("  ✓ Generate phase complete — graph paused at human_review")
+    print(f"  ✓ Checkpoint saved: {CHECKPOINT_DB}")
+    print(f"  ✓ Candidates exported: {CANDIDATES_DIR}/{today_str}.json")
+    print("  → Waiting for human review via the review UI.")
+    print("  → Resume with: python main.py --phase publish --feedback '<json>'")
+    print("=" * 60)
+
+
+def run_publish(feedback_json: str):
+    """Phase 2: Resume the graph with human feedback → Select → Enrich → Build.
+
+    Reads the checkpoint saved by run_generate(), resumes with
+    Command(resume=feedback_dict), and runs to completion.
+    """
+    print("=" * 60)
+    print("  AI Agent Daily Digest — v7.0  [phase: publish]")
+    print("=" * 60)
+
+    # Parse feedback
+    try:
+        feedback = json.loads(feedback_json)
+    except json.JSONDecodeError as exc:
+        print(f"✗ Invalid feedback JSON: {exc}")
+        sys.exit(1)
+
+    if "approved" not in feedback:
+        print("✗ feedback must contain 'approved' key (list of titles)")
+        sys.exit(1)
+
+    print(f"  > Feedback: {len(feedback.get('approved', []))} approved, "
+          f"{len(feedback.get('rejected', []))} rejected")
+
+    with SqliteSaver.from_conn_string(CHECKPOINT_DB) as checkpointer:
+        workflow = build_pipeline(enable_hitl=True)
+        app = workflow.compile(checkpointer=checkpointer)
+
+        today_str = datetime.date.today().strftime("%Y-%m-%d")
+        config = make_thread_config(today_str)
+
+        # Resume the graph — interrupt() returns feedback
+        final_state = None
+        for state_snapshot in app.stream(
+            Command(resume=feedback), config, stream_mode="values",
+        ):
+            final_state = state_snapshot
+
+    print("\n" + "=" * 60)
+    if final_state and final_state.get("status") == "success":
+        articles = final_state.get("output_json", [])
+        print(f"  ✓ Pipeline SUCCESS — {len(articles)} articles published")
+        print(f"  ✓ HTML: {OUTPUT_FILE}")
+        print(f"  ✓ Archive: {ARCHIVE_DIR}/")
+        print(f"  ✓ Feedback: {FEEDBACK_DIR}/{today_str}.json")
+    else:
+        print("  ⚠ Pipeline completed with fallback")
+    print("=" * 60)
+
+
+def run_auto():
+    """Full automatic pipeline — no human review (v6 behaviour)."""
+    print("=" * 60)
+    print("  AI Agent Daily Digest — v7.0  [phase: auto]")
+    print("=" * 60)
+
+    workflow = build_pipeline(enable_hitl=False)
     app = workflow.compile()
 
     initial_state: PipelineState = {
         "candidates": [], "today_str": "", "status": "running",
         "recent_urls": [], "recent_headlines": [],
+        "preference_context": "",
         "triage_scored": [],
         "shortlist": [], "investigated": [], "deep_scored": [],
         "react_iteration": 0, "react_action": "",
+        "feedback_history": [],
         "selected": [], "final_articles": [],
         "used_vocab_terms": [], "output_json": [],
     }
@@ -1420,6 +1736,38 @@ def main():
     else:
         print("  ⚠ Pipeline completed with fallback")
     print("=" * 60)
+
+
+def main():
+    parser = argparse.ArgumentParser(
+        description="AI Agent Daily Digest — v7.0 (Human-in-the-Loop)",
+    )
+    parser.add_argument(
+        "--phase",
+        choices=["generate", "publish", "auto"],
+        default="auto",
+        help="generate: fetch+score→wait for review. "
+             "publish: resume with feedback→build. "
+             "auto: full pipeline without HITL (default).",
+    )
+    parser.add_argument(
+        "--feedback",
+        type=str,
+        default="",
+        help='JSON string with human feedback, e.g. '
+             '\'{"approved":["title1","title2"],"rejected":["title3"]}\'',
+    )
+    args = parser.parse_args()
+
+    if args.phase == "generate":
+        run_generate()
+    elif args.phase == "publish":
+        if not args.feedback:
+            print("✗ --feedback is required for publish phase")
+            sys.exit(1)
+        run_publish(args.feedback)
+    else:
+        run_auto()
 
 
 if __name__ == "__main__":
