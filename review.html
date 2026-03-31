@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>AI Digest — Review Candidates</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif&family=DM+Sans:ital,wght@0,400;0,500;0,600;1,400&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+<style>
+:root {
+  --bg:#0c0c0e;--surface:#16161a;--surface-hover:#1c1c22;
+  --border:#2a2a32;--border-light:#35353f;
+  --text:#e8e6e3;--text-secondary:#9a9a9a;--text-muted:#6a6a72;
+  --accent:#6ee7b7;--accent-dim:#34d3991a;--accent-mid:#34d39940;
+  --approve:#22c55e;--approve-bg:#22c55e20;--approve-border:#22c55e60;
+  --reject:#ef4444;--reject-bg:#ef444420;--reject-border:#ef444460;
+  --release:#818cf8;--release-bg:#818cf815;
+  --technical:#f97316;--technical-bg:#f9731615;
+  --usecase:#06b6d4;--usecase-bg:#06b6d415;
+  --industry:#f472b6;--industry-bg:#f472b615;
+  --research:#a78bfa;--research-bg:#a78bfa15;
+  --font-display:'Instrument Serif',serif;
+  --font-body:'DM Sans',system-ui,sans-serif;
+  --font-mono:'JetBrains Mono',monospace;
+  --radius:12px;--radius-sm:8px;
+}
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+body{font-family:var(--font-body);background:var(--bg);color:var(--text);line-height:1.65;-webkit-font-smoothing:antialiased}
+::selection{background:var(--accent-mid);color:var(--text)}
+.wrapper{max-width:720px;margin:0 auto;padding:0 1.25rem}
+header{padding:2rem 0 1.5rem;border-bottom:1px solid var(--border);margin-bottom:1.5rem}
+.brand h1{font-family:var(--font-display);font-size:clamp(1.6rem,4vw,2.2rem);font-weight:400;letter-spacing:-0.02em;line-height:1.1}
+.brand h1 span{color:var(--accent)}
+.brand p{font-size:0.85rem;color:var(--text-secondary);margin-top:0.4rem}
+
+/* Status bar */
+.status-bar{display:flex;gap:.75rem;margin-top:1rem;flex-wrap:wrap;align-items:center}
+.status-pill{display:inline-flex;align-items:center;gap:.35rem;padding:.3rem .7rem;border-radius:50px;font-size:.75rem;font-weight:500}
+.status-approved{background:var(--approve-bg);color:var(--approve)}
+.status-remaining{background:var(--accent-dim);color:var(--accent)}
+.status-rejected{background:var(--reject-bg);color:var(--reject)}
+
+/* Controls */
+.controls{display:flex;gap:.75rem;margin-bottom:1.5rem;flex-wrap:wrap}
+.btn{display:inline-flex;align-items:center;gap:.4rem;padding:.55rem 1.1rem;border-radius:50px;font-family:var(--font-body);font-size:.8rem;font-weight:500;border:1px solid var(--border);background:var(--surface);color:var(--text-secondary);cursor:pointer;transition:all .15s}
+.btn:hover{background:var(--surface-hover);color:var(--text);border-color:var(--border-light)}
+.btn:disabled{opacity:.3;cursor:default}
+.btn-generate{background:var(--accent-dim);color:var(--accent);border-color:var(--accent-mid)}
+.btn-generate:hover:not(:disabled){background:var(--accent-mid);color:#fff}
+.btn-publish{background:var(--approve-bg);color:var(--approve);border-color:var(--approve-border)}
+.btn-publish:hover:not(:disabled){background:var(--approve);color:#000}
+
+/* Candidate cards */
+.candidates{display:flex;flex-direction:column;gap:.75rem}
+.cand-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:1rem 1.25rem;transition:all .2s;animation:fadeUp .3s ease both}
+.cand-card.approved{border-color:var(--approve-border);background:var(--approve-bg)}
+.cand-card.rejected{opacity:.35;border-color:var(--reject-border);background:var(--reject-bg)}
+.cand-card:nth-child(1){animation-delay:.03s}
+.cand-card:nth-child(2){animation-delay:.06s}
+.cand-card:nth-child(3){animation-delay:.09s}
+.cand-card:nth-child(4){animation-delay:.12s}
+.cand-card:nth-child(5){animation-delay:.15s}
+
+.cand-top{display:flex;gap:.75rem;align-items:flex-start}
+.cand-rank{font-family:var(--font-mono);font-size:.65rem;color:var(--text-muted);background:var(--bg);width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:2px}
+.cand-info{flex:1;min-width:0}
+.cand-title{font-family:var(--font-display);font-size:1.05rem;font-weight:400;line-height:1.3;margin-bottom:.3rem}
+.cand-insight{font-size:.82rem;color:var(--text-secondary);line-height:1.5}
+.cand-meta{display:flex;align-items:center;gap:.5rem;margin-top:.5rem;flex-wrap:wrap}
+.cand-score{font-family:var(--font-mono);font-size:.7rem;padding:.2rem .5rem;border-radius:4px;background:var(--bg);color:var(--accent)}
+.cat-pill{font-size:.65rem;padding:.15rem .45rem;border-radius:50px;font-weight:500}
+.cat-release{background:var(--release-bg);color:var(--release)}
+.cat-technical{background:var(--technical-bg);color:var(--technical)}
+.cat-use-case{background:var(--usecase-bg);color:var(--usecase)}
+.cat-industry{background:var(--industry-bg);color:var(--industry)}
+.cat-research{background:var(--research-bg);color:var(--research)}
+
+.cand-actions{display:flex;gap:.4rem;flex-shrink:0;margin-top:2px}
+.cand-btn{width:36px;height:36px;border-radius:50%;border:1px solid var(--border);background:var(--surface);color:var(--text-muted);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:1.1rem;transition:all .15s}
+.cand-btn:hover{border-color:var(--border-light);color:var(--text)}
+.cand-btn.approve-btn:hover,.cand-btn.approve-btn.active{background:var(--approve-bg);border-color:var(--approve-border);color:var(--approve)}
+.cand-btn.reject-btn:hover,.cand-btn.reject-btn.active{background:var(--reject-bg);border-color:var(--reject-border);color:var(--reject)}
+
+/* Empty / loading states */
+.empty-state{text-align:center;padding:4rem 1rem;color:var(--text-muted)}
+.empty-state h2{font-family:var(--font-display);font-size:1.4rem;color:var(--text-secondary);margin-bottom:.5rem}
+.loading{text-align:center;padding:3rem;color:var(--text-muted)}
+.loading .spinner{display:inline-block;width:20px;height:20px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite;margin-right:.5rem}
+
+/* Config panel */
+.config-panel{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:1rem 1.25rem;margin-bottom:1.5rem}
+.config-panel label{display:block;font-size:.75rem;color:var(--text-muted);margin-bottom:.3rem;text-transform:uppercase;letter-spacing:.05em}
+.config-panel input{width:100%;padding:.4rem .6rem;background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:var(--font-mono);font-size:.8rem;outline:none}
+.config-panel input:focus{border-color:var(--accent)}
+.config-row{display:flex;gap:.75rem;margin-bottom:.5rem}
+.config-row>div{flex:1}
+
+footer{border-top:1px solid var(--border);margin-top:2rem;padding:1.5rem 0 2rem;text-align:center;font-size:.75rem;color:var(--text-muted)}
+
+@keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+@keyframes spin{to{transform:rotate(360deg)}}
+@media(max-width:540px){
+  .cand-rank{display:none}
+  .cand-card{padding:.85rem 1rem}
+  .config-row{flex-direction:column}
+}
+</style>
+</head>
+<body>
+<div class="wrapper">
+  <header>
+    <div class="brand">
+      <h1>AI Digest <span>Review</span></h1>
+      <p>Approve articles for today's digest. Reject what you don't want.</p>
+    </div>
+    <div class="status-bar" id="status-bar">
+      <span class="status-pill status-remaining" id="status-remaining">0 candidates</span>
+    </div>
+  </header>
+
+  <div class="config-panel" id="config-panel">
+    <div class="config-row">
+      <div>
+        <label>GitHub Owner / Repo</label>
+        <input id="cfg-repo" type="text" placeholder="Keke-chan/ai-news-daily" />
+      </div>
+      <div>
+        <label>GitHub PAT</label>
+        <input id="cfg-token" type="password" placeholder="ghp_..." />
+      </div>
+    </div>
+    <div style="display:flex;gap:.5rem;margin-top:.5rem">
+      <button class="btn" onclick="saveConfig()">Save config</button>
+      <span style="font-size:.7rem;color:var(--text-muted);align-self:center" id="config-status"></span>
+    </div>
+  </div>
+
+  <div class="controls">
+    <button class="btn btn-generate" id="btn-generate" onclick="triggerGenerate()">
+      &#9889; Generate Candidates
+    </button>
+    <button class="btn btn-publish" id="btn-publish" onclick="triggerPublish()" disabled>
+      &#128228; Publish Digest
+    </button>
+    <button class="btn" id="btn-refresh" onclick="loadCandidates()">
+      &#8635; Refresh
+    </button>
+  </div>
+
+  <div class="candidates" id="candidates-container">
+    <div class="empty-state">
+      <h2>No candidates yet</h2>
+      <p>Click "Generate Candidates" to start, or wait for the scheduled run.</p>
+    </div>
+  </div>
+
+  <footer>
+    AI Agent Daily Digest v7.0 &mdash; Human-in-the-Loop Review UI
+  </footer>
+</div>
+
+<script>
+// ---- State ----
+let candidates = [];
+let decisions = {};  // title -> "approved" | "rejected"
+const TARGET = 5;
+
+const categoryMeta = {
+  'release':   {label:'Release',   cls:'cat-release'},
+  'technical': {label:'Technical', cls:'cat-technical'},
+  'use-case':  {label:'Use case',  cls:'cat-use-case'},
+  'industry':  {label:'Industry',  cls:'cat-industry'},
+  'research':  {label:'Research',  cls:'cat-research'},
+};
+
+// ---- Config (localStorage) ----
+function getConfig() {
+  return {
+    repo:  localStorage.getItem('digest-repo')  || '',
+    token: localStorage.getItem('digest-token') || '',
+  };
+}
+
+function saveConfig() {
+  const repo  = document.getElementById('cfg-repo').value.trim();
+  const token = document.getElementById('cfg-token').value.trim();
+  if (repo)  localStorage.setItem('digest-repo', repo);
+  if (token) localStorage.setItem('digest-token', token);
+  document.getElementById('config-status').textContent = 'Saved!';
+  setTimeout(() => document.getElementById('config-status').textContent = '', 2000);
+}
+
+function loadConfig() {
+  const cfg = getConfig();
+  document.getElementById('cfg-repo').value  = cfg.repo;
+  document.getElementById('cfg-token').value = cfg.token;
+}
+
+// ---- Helpers ----
+function esc(s) {
+  const d = document.createElement('div');
+  d.textContent = s || '';
+  return d.innerHTML;
+}
+
+async function ghApi(method, path, body) {
+  const cfg = getConfig();
+  if (!cfg.repo || !cfg.token) {
+    alert('Please configure GitHub repo and PAT first.');
+    return null;
+  }
+  const url = `https://api.github.com/repos/${cfg.repo}${path}`;
+  const opts = {
+    method,
+    headers: {
+      'Authorization': `Bearer ${cfg.token}`,
+      'Accept': 'application/vnd.github+json',
+    },
+  };
+  if (body) opts.body = JSON.stringify(body);
+  const resp = await fetch(url, opts);
+  if (!resp.ok) {
+    const text = await resp.text();
+    console.error('GitHub API error:', resp.status, text);
+    return null;
+  }
+  if (resp.status === 204) return {};
+  return resp.json();
+}
+
+// ---- Actions ----
+async function triggerGenerate() {
+  const btn = document.getElementById('btn-generate');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Generating...';
+  
+  const result = await ghApi('POST', '/actions/workflows/generate.yml/dispatches', {
+    ref: 'main',
+  });
+  
+  if (result !== null) {
+    btn.innerHTML = '&#9889; Triggered! Waiting...';
+    // Poll for candidates file
+    let attempts = 0;
+    const poll = setInterval(async () => {
+      attempts++;
+      if (attempts > 60) {  // 5 min timeout
+        clearInterval(poll);
+        btn.disabled = false;
+        btn.innerHTML = '&#9889; Generate Candidates';
+        alert('Timeout waiting for candidates. Check GitHub Actions.');
+        return;
+      }
+      const loaded = await loadCandidates();
+      if (loaded) {
+        clearInterval(poll);
+        btn.disabled = false;
+        btn.innerHTML = '&#9889; Generate Candidates';
+      }
+    }, 5000);
+  } else {
+    btn.disabled = false;
+    btn.innerHTML = '&#9889; Generate Candidates';
+  }
+}
+
+async function loadCandidates() {
+  const cfg = getConfig();
+  const today = new Date().toISOString().slice(0, 10);
+  
+  // Try loading from GitHub raw content
+  const url = `https://raw.githubusercontent.com/${cfg.repo}/main/candidates/${today}.json`;
+  try {
+    const resp = await fetch(url, {cache: 'no-cache'});
+    if (!resp.ok) return false;
+    const data = await resp.json();
+    candidates = data.candidates || [];
+    decisions = {};
+    renderCandidates();
+    return candidates.length > 0;
+  } catch (e) {
+    console.log('No candidates file yet:', e.message);
+    return false;
+  }
+}
+
+async function triggerPublish() {
+  const approved = Object.entries(decisions)
+    .filter(([_, v]) => v === 'approved')
+    .map(([title]) => title);
+  const rejected = Object.entries(decisions)
+    .filter(([_, v]) => v === 'rejected')
+    .map(([title]) => title);
+  
+  if (approved.length < 3) {
+    alert(`Please approve at least 3 articles (currently ${approved.length}).`);
+    return;
+  }
+  
+  const btn = document.getElementById('btn-publish');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Publishing...';
+  
+  const feedback = JSON.stringify({approved, rejected});
+  
+  const result = await ghApi('POST', '/actions/workflows/publish.yml/dispatches', {
+    ref: 'main',
+    inputs: {feedback},
+  });
+  
+  if (result !== null) {
+    btn.innerHTML = '&#128228; Published! &#10003;';
+    setTimeout(() => {
+      btn.disabled = false;
+      btn.innerHTML = '&#128228; Publish Digest';
+    }, 5000);
+  } else {
+    btn.disabled = false;
+    btn.innerHTML = '&#128228; Publish Digest';
+  }
+}
+
+// ---- Rendering ----
+function decide(title, action) {
+  if (decisions[title] === action) {
+    delete decisions[title];  // toggle off
+  } else {
+    decisions[title] = action;
+  }
+  renderCandidates();
+}
+
+function renderCandidates() {
+  const container = document.getElementById('candidates-container');
+  const statusBar = document.getElementById('status-bar');
+  const publishBtn = document.getElementById('btn-publish');
+  
+  if (!candidates.length) {
+    container.innerHTML = '<div class="empty-state"><h2>No candidates yet</h2><p>Click "Generate Candidates" to start.</p></div>';
+    statusBar.innerHTML = '<span class="status-pill status-remaining">0 candidates</span>';
+    publishBtn.disabled = true;
+    return;
+  }
+  
+  const approvedCount = Object.values(decisions).filter(v => v === 'approved').length;
+  const rejectedCount = Object.values(decisions).filter(v => v === 'rejected').length;
+  const remaining = candidates.length - approvedCount - rejectedCount;
+  
+  statusBar.innerHTML = [
+    `<span class="status-pill status-approved">&#10003; ${approvedCount} approved</span>`,
+    `<span class="status-pill status-remaining">${remaining} remaining</span>`,
+    rejectedCount ? `<span class="status-pill status-rejected">&#10007; ${rejectedCount} rejected</span>` : '',
+  ].join('');
+  
+  publishBtn.disabled = approvedCount < 3;
+  
+  // Sort: undecided first (by score), then approved, then rejected
+  const sorted = [...candidates].sort((a, b) => {
+    const da = decisions[a.title] || '';
+    const db = decisions[b.title] || '';
+    if (da === 'rejected' && db !== 'rejected') return 1;
+    if (db === 'rejected' && da !== 'rejected') return -1;
+    if (da === 'approved' && db !== 'approved' && db !== 'rejected') return 1;
+    if (db === 'approved' && da !== 'approved' && da !== 'rejected') return -1;
+    return b.combined_score - a.combined_score;
+  });
+  
+  container.innerHTML = sorted.map((c, i) => {
+    const d = decisions[c.title] || '';
+    const cat = c.category || 'technical';
+    const m = categoryMeta[cat] || categoryMeta['technical'];
+    const cardClass = d === 'approved' ? 'approved' : d === 'rejected' ? 'rejected' : '';
+    
+    return `<div class="cand-card ${cardClass}">
+      <div class="cand-top">
+        <span class="cand-rank">${i+1}</span>
+        <div class="cand-info">
+          <div class="cand-title">${esc(c.title)}</div>
+          ${c.key_insight ? `<div class="cand-insight">${esc(c.key_insight)}</div>` : ''}
+          <div class="cand-meta">
+            <span class="cand-score">&#9733; ${c.combined_score.toFixed(1)}</span>
+            <span class="cand-score">W:${c.world_importance} B:${c.business_value}</span>
+            <span class="cat-pill ${m.cls}">${m.label}</span>
+            ${c.link ? `<a href="${esc(c.link)}" target="_blank" rel="noopener" style="font-size:.7rem;color:var(--text-muted)">source &#8599;</a>` : ''}
+          </div>
+        </div>
+        <div class="cand-actions">
+          <button class="cand-btn approve-btn ${d==='approved'?'active':''}" 
+                  onclick="decide('${esc(c.title).replace(/'/g,"\\'")}','approved')" title="Approve">&#10003;</button>
+          <button class="cand-btn reject-btn ${d==='rejected'?'active':''}" 
+                  onclick="decide('${esc(c.title).replace(/'/g,"\\'")}','rejected')" title="Reject">&#10007;</button>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ---- Init ----
+loadConfig();
+loadCandidates();
+</script>
+</body>
+</html>
