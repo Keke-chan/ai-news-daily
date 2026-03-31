@@ -1,0 +1,43 @@
+name: Publish Digest
+
+on:
+  workflow_dispatch:
+    inputs:
+      feedback:
+        description: 'JSON feedback: {"approved":["title1",...],"rejected":["title2",...]}'
+        required: true
+        type: string
+
+permissions:
+  contents: write
+  pages: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run publish phase
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: |
+          python main.py --phase publish --feedback '${{ inputs.feedback }}'
+
+      - name: Commit & deploy
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add index.html archives/ feedback/ checkpoints/
+          DATE=$(date +%Y-%m-%d)
+          git commit -m "digest ${DATE}" || echo "No changes to commit"
+          git push
