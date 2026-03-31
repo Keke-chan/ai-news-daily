@@ -1,0 +1,40 @@
+name: Generate Candidates
+
+on:
+  workflow_dispatch:
+  # Optional: also run on schedule for pre-generation
+  # schedule:
+  #   - cron: '0 21 * * *'  # 06:00 JST
+
+permissions:
+  contents: write
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run generate phase
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          TAVILY_API_KEY: ${{ secrets.TAVILY_API_KEY }}
+        run: python main.py --phase generate
+
+      - name: Commit candidates + checkpoint
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add candidates/ checkpoints/
+          DATE=$(date +%Y-%m-%d)
+          git commit -m "candidates for ${DATE}" || echo "No changes to commit"
+          git push
