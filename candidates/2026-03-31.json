@@ -1,0 +1,137 @@
+{
+  "date": "2026-03-31",
+  "candidates": [
+    {
+      "title": "Railway secures $100 million to challenge AWS with AI-native cloud infrastructure",
+      "link": "https://venturebeat.com/infrastructure/railway-secures-usd100-million-to-challenge-aws-with-ai-native-cloud",
+      "combined_score": 7.7,
+      "world_importance": 7,
+      "business_value": 8,
+      "category": "industry",
+      "release_magnitude": "none",
+      "key_insight": "Practitioners should recognize that traditional cloud infrastructure can be a bottleneck for AI-driven development, and specialized platforms like Railway are emerging to offer significantly faster deployments and cost savings by building 'AI-native' cloud solutions.",
+      "triage_score": 7,
+      "body": "Railway , a San Francisco-based cloud platform that has quietly amassed two million developers without spending a dollar on marketing, announced Thursday that it raised $100 million in a Series B funding round, as surging demand for artificial intelligence applications exposes the limitations of legacy cloud infrastructure. TQ Ventures led the round, with participation from FPV Ventures , Redpoint , and Unusual Ventures . The investment values Railway as one of the most significant infrastructur"
+    },
+    {
+      "title": "Claude Code costs up to $200 a month. Goose does the same thing for free.",
+      "link": "https://venturebeat.com/infrastructure/claude-code-costs-up-to-usd200-a-month-goose-does-the-same-thing-for-free",
+      "combined_score": 7.7,
+      "world_importance": 7,
+      "business_value": 8,
+      "category": "industry",
+      "release_magnitude": "none",
+      "key_insight": "Practitioners can leverage Goose, a free, local, open-source AI coding agent, as a viable alternative to expensive cloud-based tools like Claude Code, offering benefits such as data privacy, offline capability, and no rate limits.",
+      "triage_score": 7,
+      "body": "The artificial intelligence coding revolution comes with a catch: it&#x27;s expensive. Claude Code , Anthropic&#x27;s terminal-based AI agent that can write, debug, and deploy code autonomously, has captured the imagination of software developers worldwide. But its pricing — ranging from $20 to $200 per month depending on usage — has sparked a growing rebellion among the very programmers it aims to serve. Now, a free alternative is gaining traction. Goose , an open-source AI agent developed by B"
+    },
+    {
+      "title": "AI benchmarks are broken. Here’s what we need instead.",
+      "link": "https://www.technologyreview.com/2026/03/31/1134833/ai-benchmarks-are-broken-heres-what-we-need-instead/",
+      "combined_score": 7.3,
+      "world_importance": 8,
+      "business_value": 7,
+      "category": "research",
+      "release_magnitude": "none",
+      "key_insight": "Current AI benchmarks are flawed because they don't account for human-AI interaction in real-world, complex, and long-term workflows, leading to misleading performance expectations and deployment failures; practitioners should adopt a more holistic, context-specific evaluation approach.",
+      "triage_score": 8,
+      "body": "For decades, artificial intelligence has been evaluated through the question of whether machines outperform humans. From chess to advanced math, from coding to essay writing, the performance of AI models and applications is tested against that of individual humans completing tasks.&#160; This framing is seductive: An AI vs. human comparison on isolated problems with clear&#8230;"
+    },
+    {
+      "title": "Shifting to AI model customization is an architectural imperative",
+      "link": "https://www.technologyreview.com/2026/03/31/1134762/shifting-to-ai-model-customization-is-an-architectural-imperative/",
+      "combined_score": 7.0,
+      "world_importance": 7,
+      "business_value": 7,
+      "category": "industry",
+      "release_magnitude": "none",
+      "key_insight": "Practitioners should recognize that competitive advantage in AI now stems from deeply customizing models with proprietary data and logic, necessitating a strategic shift to treating AI as core infrastructure and retaining control over data and models.",
+      "triage_score": 9,
+      "body": "In the early days of large language models (LLMs), we grew accustomed to massive 10x jumps in reasoning and coding capability with every new model iteration. Today, those jumps have flattened into incremental gains. The exception is domain-specialized intelligence, where true step-function improvements are still the norm. When a model is fused with an organization’s&#8230;"
+    },
+    {
+      "title": "Popular AI gateway startup LiteLLM ditches controversial startup Delve",
+      "link": "https://techcrunch.com/2026/03/30/popular-ai-gateway-startup-litellm-ditches-controversial-startup-delve/",
+      "combined_score": 7.0,
+      "world_importance": 7,
+      "business_value": 7,
+      "category": "industry",
+      "release_magnitude": "none",
+      "key_insight": "Practitioners should prioritize rigorous security vetting for all AI infrastructure components and partners to mitigate supply chain risks.",
+      "triage_score": 6,
+      "body": "LiteLLM had obtained two security compliance certifications via Delve and fell victim to some horrific credential-stealing malware last week."
+    },
+    {
+      "title": "Okta&#8217;s CEO is betting big on AI agent identity",
+      "link": "https://www.theverge.com/podcast/902264/oktas-ceo-is-betting-big-on-ai-agent-identity",
+      "combined_score": 7.0,
+      "world_importance": 7,
+      "business_value": 7,
+      "category": "industry",
+      "release_magnitude": "none",
+      "key_insight": "Practitioners should be aware that identity management for AI agents is becoming a critical area, with major players like Okta focusing on developing solutions for securing these autonomous entities.",
+      "triage_score": 5,
+      "body": "Today, I’m talking with Todd McKinnon, who is co-founder and CEO of Okta, a platform that lets big companies manage security and identity across all the apps and services their employees use. Think of it like login management — actually, that’s a great way to think about it because the way most people encounter Okta [&#8230;]"
+    },
+    {
+      "title": "There are more AI health tools than ever—but how well do they work?",
+      "link": "https://www.technologyreview.com/2026/03/30/1134795/there-are-more-ai-health-tools-than-ever-but-how-well-do-they-work/",
+      "combined_score": 6.3,
+      "world_importance": 7,
+      "business_value": 6,
+      "category": "industry",
+      "release_magnitude": "none",
+      "key_insight": "Despite the proliferation of AI health tools from major tech companies, their efficacy and safety require more rigorous, independent evaluation to ensure responsible deployment in high-stakes medical contexts.",
+      "triage_score": 6,
+      "body": "Earlier this month, Microsoft launched Copilot Health, a new space within its Copilot app where users will be able to connect their medical records and ask specific questions about their health. A couple of days earlier, Amazon had announced that Health AI, an LLM-based tool previously restricted to members of its One Medical service, would&#8230;"
+    },
+    {
+      "title": "ScaleOps raises $130M to improve computing efficiency amid AI demand",
+      "link": "https://techcrunch.com/2026/03/30/scaleops-130m-series-c-kubernetes-efficiency-ai-demand-funding/",
+      "combined_score": 5.6,
+      "world_importance": 7,
+      "business_value": 5,
+      "category": "industry",
+      "release_magnitude": "none",
+      "key_insight": "Practitioners should recognize that optimizing AI infrastructure costs and GPU utilization, especially within Kubernetes, is a major industry challenge attracting significant investment in specialized solutions.",
+      "triage_score": 7,
+      "body": "ScaleOps just raised $130M to tackle GPU shortages and soaring AI cloud costs by automating infrastructure in real time."
+    },
+    {
+      "title": "Nomadic raises $8.4 million to wrangle the data pouring off autonomous vehicles",
+      "link": "https://techcrunch.com/2026/03/31/nomadic-raises-8-4-million-to-wrangle-the-data-pouring-off-avs/",
+      "combined_score": 5.0,
+      "world_importance": 5,
+      "business_value": 5,
+      "category": "industry",
+      "release_magnitude": "none",
+      "key_insight": "Practitioners can learn that managing and structuring the massive data generated by autonomous vehicles is a critical problem, with companies like Nomadic developing deep learning solutions for data wrangling.",
+      "triage_score": 8,
+      "body": "The company turns footage from robots into structured, searchable datasets with a deep learning model."
+    },
+    {
+      "title": "Mantis Biotech is making ‘digital twins’ of humans to help solve medicine’s data availability problem",
+      "link": "https://techcrunch.com/2026/03/30/mantis-biotech-is-making-digital-twins-of-humans-to-help-solve-medicines-data-availability-problem/",
+      "combined_score": 5.0,
+      "world_importance": 5,
+      "business_value": 5,
+      "category": "use-case",
+      "release_magnitude": "none",
+      "key_insight": "Mantis Biotech is leveraging AI to create synthetic 'digital twins' of humans, aiming to overcome data availability challenges in medical research and development.",
+      "triage_score": 8,
+      "body": "Mantis takes disparate sources of data to make synthetic datasets that can be used to build so-called \"digital twins\" of the human body, representing anatomy, physiology and behavior."
+    },
+    {
+      "title": "Why can’t TikTok identify AI generated ads when I can?",
+      "link": "https://www.theverge.com/ai-artificial-intelligence/900400/tiktok-ai-ads-labels-samsung-disclosure",
+      "combined_score": 3.3,
+      "world_importance": 4,
+      "business_value": 3,
+      "category": "industry",
+      "release_magnitude": "none",
+      "key_insight": "Practitioners should be aware that even major platforms struggle with identifying AI-generated content, indicating a gap in current detection technologies and a challenge for content moderation.",
+      "triage_score": 6,
+      "body": "I've been struggling to tell whether the ads appearing in my TikTok feeds have been made with generative AI tools. As someone who spends a great deal of time scrutinizing images and videos for the usual \"tells\" that something was synthetically generated, some of the promotions I've seen have definitely sparked suspicion. For several weeks, [&#8230;]"
+    }
+  ]
+}
