@@ -1,0 +1,113 @@
+{
+  "date": "2026-04-06",
+  "candidates": [
+    {
+      "title": "The creator of Claude Code just revealed his workflow, and developers are losing their minds",
+      "link": "https://venturebeat.com/technology/the-creator-of-claude-code-just-revealed-his-workflow-and-developers-are",
+      "combined_score": 8.7,
+      "world_importance": 8,
+      "business_value": 9,
+      "category": "technical",
+      "release_magnitude": "none",
+      "key_insight": "Developers can significantly enhance productivity by orchestrating multiple AI agents, prioritizing the smartest models for fewer corrections, and implementing a shared knowledge base for continuous AI learning.",
+      "triage_score": 9,
+      "body": "When the creator of the world&#x27;s most advanced coding agent speaks, Silicon Valley doesn&#x27;t just listen — it takes notes. For the past week, the engineering community has been dissecting a thread on X from Boris Cherny , the creator and head of Claude Code at Anthropic . What began as a casual sharing of his personal terminal setup has spiraled into a viral manifesto on the future of software development, with industry insiders calling it a watershed moment for the startup. &quot;If you&"
+    },
+    {
+      "title": "Microsoft takes on AI rivals with three new foundational models",
+      "link": "https://techcrunch.com/2026/04/02/microsoft-takes-on-ai-rivals-with-three-new-foundational-models/",
+      "combined_score": 8.0,
+      "world_importance": 8,
+      "business_value": 8,
+      "category": "release",
+      "release_magnitude": "major",
+      "key_insight": "Practitioners should be aware that Microsoft is expanding its foundational model offerings in voice, audio, and image generation, providing new tools for multimodal AI application development.",
+      "triage_score": 5,
+      "body": "MAI released models that can transcribe voice into text as well as generate audio and images after the group's formation six months ago."
+    },
+    {
+      "title": "There are more AI health tools than ever—but how well do they work?",
+      "link": "https://www.technologyreview.com/2026/03/30/1134795/there-are-more-ai-health-tools-than-ever-but-how-well-do-they-work/",
+      "combined_score": 8.0,
+      "world_importance": 8,
+      "business_value": 8,
+      "category": "industry",
+      "release_magnitude": "none",
+      "key_insight": "Practitioners should prioritize independent and rigorous evaluation for AI tools in sensitive domains like health, as current deployments by major companies raise significant safety concerns due to a lack of external scrutiny.",
+      "triage_score": 6,
+      "body": "Earlier this month, Microsoft launched Copilot Health, a new space within its Copilot app where users will be able to connect their medical records and ask specific questions about their health. A couple of days earlier, Amazon had announced that Health AI, an LLM-based tool previously restricted to members of its One Medical service, would&#8230;"
+    },
+    {
+      "title": "Suno is a music copyright nightmare",
+      "link": "https://www.theverge.com/ai-artificial-intelligence/906896/sunos-copyright-ai-music-covers",
+      "combined_score": 7.3,
+      "world_importance": 8,
+      "business_value": 7,
+      "category": "industry",
+      "release_magnitude": "none",
+      "key_insight": "AI music generation tools like Suno present substantial copyright challenges that developers and businesses must address to ensure legal compliance and responsible deployment of such technologies.",
+      "triage_score": 5,
+      "body": "AI music platform Suno's policy is that it does not permit the use of copyrighted material. You can upload your own tracks to remix or set your original lyrics to AI-generated music. But, it's supposed to recognize and stop you from using other people's songs and lyrics. Now, no system is perfect, but it turns [&#8230;]"
+    },
+    {
+      "title": "Listen Labs raises $69M after viral billboard hiring stunt to scale AI customer interviews",
+      "link": "https://venturebeat.com/technology/listen-labs-raises-usd69m-after-viral-billboard-hiring-stunt-to-scale-ai",
+      "combined_score": 7.0,
+      "world_importance": 7,
+      "business_value": 7,
+      "category": "use-case",
+      "release_magnitude": "none",
+      "key_insight": "Practitioners can learn how AI is being effectively used to scale qualitative customer research, improve data honesty, and detect fraud, offering a faster and more reliable alternative to traditional methods.",
+      "triage_score": 4,
+      "body": "Alfred Wahlforss was running out of options. His startup, Listen Labs , needed to hire over 100 engineers, but competing against Mark Zuckerberg&#x27;s $100 million offers seemed impossible. So he spent $5,000 — a fifth of his marketing budget — on a billboard in San Francisco displaying what looked like gibberish: five strings of random numbers. The numbers were actually AI tokens. Decoded, they led to a coding challenge: build an algorithm to act as a digital bouncer at Berghain, the Berlin ni"
+    },
+    {
+      "title": "A folk musician became a target for AI fakes and a copyright troll",
+      "link": "https://www.theverge.com/entertainment/907111/murphy-campbell-folk-music-ai-copyright",
+      "combined_score": 5.6,
+      "world_importance": 7,
+      "business_value": 5,
+      "category": "industry",
+      "release_magnitude": "none",
+      "key_insight": "Practitioners should be aware of the real-world ethical and legal challenges, such as deepfakes and copyright infringement, that generative AI models can enable, necessitating robust safeguards and responsible deployment strategies.",
+      "triage_score": 5,
+      "body": "In January, folk artist Murphy Campbell discovered several songs on her Spotify profile that did not belong there. They were songs that she had recorded, but she'd never uploaded them to Spotify, and something was off about the vocals. She quickly surmised that someone had pulled performances of the songs she posted to YouTube, created [&#8230;]"
+    },
+    {
+      "title": "Anthropic launches Cowork, a Claude Desktop agent that works in your files — no coding required",
+      "link": "https://venturebeat.com/technology/anthropic-launches-cowork-a-claude-desktop-agent-that-works-in-your-files-no",
+      "combined_score": 4.3,
+      "world_importance": 5,
+      "business_value": 4,
+      "category": "release",
+      "release_magnitude": "minor",
+      "key_insight": "Anthropic's new Cowork desktop agent allows non-technical users to automate file-based tasks using Claude, showcasing a significant step in making AI agents accessible for everyday productivity.",
+      "triage_score": 8,
+      "body": "Anthropic released Cowork on Monday, a new AI agent capability that extends the power of its wildly successful Claude Code tool to non-technical users — and according to company insiders, the team built the entire feature in approximately a week and a half, largely using Claude Code itself. The launch marks a major inflection point in the race to deliver practical AI agents to mainstream users, positioning Anthropic to compete not just with OpenAI and Google in conversational AI, but with Micros"
+    },
+    {
+      "title": "Gemini 3.1 Flash Live: Making audio AI more natural and reliable",
+      "link": "https://blog.google/innovation-and-ai/models-and-research/gemini-models/gemini-3-1-flash-live/",
+      "combined_score": 4.3,
+      "world_importance": 5,
+      "business_value": 4,
+      "category": "release",
+      "release_magnitude": "minor",
+      "key_insight": "Google has released Gemini 3.1 Flash, an updated model with improved audio AI capabilities for more natural and reliable processing.",
+      "triage_score": 6,
+      "body": "The Gemini emblem sits next to text reading 'Gemini 3.1 Flash Live'. The background has blue, multicolored dots making up a microphone icon"
+    },
+    {
+      "title": "Google now lets you direct avatars through prompts in its Vids app",
+      "link": "https://techcrunch.com/2026/04/02/google-now-lets-you-direct-avatars-through-prompts-in-its-vids-app/",
+      "combined_score": 4.3,
+      "world_importance": 5,
+      "business_value": 4,
+      "category": "release",
+      "release_magnitude": "minor",
+      "key_insight": "Google Vids now allows users to direct AI avatars using text prompts, streamlining the creation of personalized video content.",
+      "triage_score": 4,
+      "body": "Google is adding a way to customize and instruct avatars for video creation in the Vids app."
+    }
+  ]
+}
