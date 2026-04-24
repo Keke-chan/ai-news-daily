@@ -1,0 +1,101 @@
+{
+  "date": "2026-04-24",
+  "candidates": [
+    {
+      "title": "China’s DeepSeek previews new AI model a year after jolting US rivals",
+      "link": "https://www.theverge.com/ai-artificial-intelligence/918035/deepseek-preview-v4-ai-model",
+      "combined_score": 8.0,
+      "world_importance": 8,
+      "business_value": 8,
+      "category": "release",
+      "release_magnitude": "major",
+      "key_insight": "Practitioners should investigate DeepSeek's new open-source V4 model, especially its strong coding capabilities, as a viable alternative to larger proprietary AI systems.",
+      "triage_score": 8,
+      "body": "Chinese AI company DeepSeek released a preview of its hotly anticipated next-generation AI model V4 on Friday, saying that the open-source model can compete with leading closed-source systems from US rivals including Anthropic, Google, and OpenAI. DeepSeek says V4 marks a major improvement over prior models, especially in coding, a capability that has become central [&#8230;]"
+    },
+    {
+      "title": "Health-care AI is here. We don’t know if it actually helps patients.",
+      "link": "https://www.technologyreview.com/2026/04/24/1136352/health-care-ai-dont-know-actually-helps-patients/",
+      "combined_score": 7.0,
+      "world_importance": 7,
+      "business_value": 7,
+      "category": "industry",
+      "release_magnitude": "none",
+      "key_insight": "Practitioners developing AI for healthcare must move beyond accuracy and satisfaction metrics to rigorously evaluate the direct impact on patient health outcomes.",
+      "triage_score": 6,
+      "body": "I don’t need to tell you that AI is everywhere. Or that it is being used, increasingly, in hospitals. Doctors are using AI to help them with notetaking. AI-based tools are trawling through patient records, flagging people who may require certain support or treatments. They are also used to interpret medical exam results and X-rays. A&#8230;"
+    },
+    {
+      "title": "You’re about to feel the AI money squeeze",
+      "link": "https://www.theverge.com/ai-artificial-intelligence/917380/ai-monetization-anthropic-openai-token-economics-revenue",
+      "combined_score": 6.6,
+      "world_importance": 8,
+      "business_value": 6,
+      "category": "industry",
+      "release_magnitude": "none",
+      "key_insight": "Practitioners should be aware that the high operational costs of large AI models are leading to service restrictions and increased pricing, necessitating strategic planning for AI adoption and resource allocation.",
+      "triage_score": 5,
+      "body": "Earlier this month, millions of OpenClaw users woke up to a sweeping mandate: The viral AI agent tool, which this year took the worldwide tech industry by storm, had been severely restricted by Anthropic. Anthropic, like other leading AI labs, was under immense pressure to lessen the strain on its systems and start turning a [&#8230;]"
+    },
+    {
+      "title": "In another wild turn for AI chips, Meta signs deal for millions of Amazon AI CPUs",
+      "link": "https://techcrunch.com/2026/04/24/in-another-wild-turn-for-ai-chips-meta-signs-deal-for-millions-of-amazon-ai-cpus/",
+      "combined_score": 6.6,
+      "world_importance": 8,
+      "business_value": 6,
+      "category": "industry",
+      "release_magnitude": "none",
+      "key_insight": "The AI hardware landscape is diversifying, with major players like Meta investing in custom AI CPUs from Amazon for agentic workloads, signaling a shift beyond GPU-centric strategies.",
+      "triage_score": 8,
+      "body": "Meta has commandeered a big chunk of Amazon's homegrown CPUs (not GPUs) for AI agentic workloads, signaling that a new kind of chip race has begun."
+    },
+    {
+      "title": "DeepSeek previews new AI model that ‘closes the gap’ with frontier models",
+      "link": "https://techcrunch.com/2026/04/24/deepseek-previews-new-ai-model-that-closes-the-gap-with-frontier-models/",
+      "combined_score": 6.3,
+      "world_importance": 7,
+      "business_value": 6,
+      "category": "release",
+      "release_magnitude": "major",
+      "key_insight": "Practitioners should be aware that DeepSeek is developing a new, more efficient model that could offer competitive performance against leading LLMs in the near future.",
+      "triage_score": 7,
+      "body": "DeepSeek says both models are more efficient and performant than DeepSeek V3.2 due to architectural improvements, and have almost \"closed the gap\" with current leading models, both open and closed, on reasoning benchmarks."
+    },
+    {
+      "title": "OpenAI says its new GPT-5.5 model is more efficient and better at coding",
+      "link": "https://www.theverge.com/ai-artificial-intelligence/917612/openai-gpt-5-5-chatgpt",
+      "combined_score": 4.3,
+      "world_importance": 5,
+      "business_value": 4,
+      "category": "release",
+      "release_magnitude": "minor",
+      "key_insight": "Practitioners should be aware that OpenAI has released GPT-5.5, an incremental update to its model series, which claims improved efficiency and enhanced performance for coding tasks.",
+      "triage_score": 7,
+      "body": "OpenAI just announced its new GPT-5.5 model, which the company calls its \"smartest and most intuitive to use model yet, and the next step toward a new way of getting work done on a computer.\" OpenAI just released GPT-5.4 last month, but says that the new GPT-5.5 \"excels\" at tasks like writing and debugging code, [&#8230;]"
+    },
+    {
+      "title": "OpenAI releases GPT-5.5, bringing company one step closer to an AI ‘super app’",
+      "link": "https://techcrunch.com/2026/04/23/openai-chatgpt-gpt-5-5-ai-model-superapp/",
+      "combined_score": 4.3,
+      "world_importance": 5,
+      "business_value": 4,
+      "category": "release",
+      "release_magnitude": "minor",
+      "key_insight": "Practitioners should be aware that OpenAI has released an incremental update to its flagship model, GPT-5.5, which promises increased capabilities and moves the company closer to an integrated AI 'super app' ecosystem.",
+      "triage_score": 6,
+      "body": "OpenAI says its latest model offers increased capabilities across a broad variety of categories."
+    },
+    {
+      "title": "Claude is connecting directly to your personal apps like Spotify, Uber Eats, and TurboTax",
+      "link": "https://www.theverge.com/ai-artificial-intelligence/917871/anthropic-claude-personal-app-connectors",
+      "combined_score": 3.6,
+      "world_importance": 5,
+      "business_value": 3,
+      "category": "release",
+      "release_magnitude": "minor",
+      "key_insight": "Anthropic's Claude is expanding its integration capabilities to include a wider range of personal applications, enhancing its utility for individual users beyond enterprise contexts.",
+      "triage_score": 6,
+      "body": "Claude users can access more apps with Anthropic's AI now thanks to new connectors for everything from hiking to grocery shopping. Anthropic already supported connecting numerous work-related apps to Claude, like Microsoft apps, but this expansion focuses on personal apps like Audible, Spotify, Uber, AllTrails, TripAdvisor, Instacart, TurboTax, and others. Some of these apps, such [&#8230;]"
+    }
+  ]
+}
