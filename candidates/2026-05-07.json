@@ -1,0 +1,149 @@
+{
+  "date": "2026-05-07",
+  "candidates": [
+    {
+      "title": "Nous Research's NousCoder-14B is an open-source coding model landing right in the Claude Code moment",
+      "link": "https://venturebeat.com/technology/nous-researchs-nouscoder-14b-is-an-open-source-coding-model-landing-right-in",
+      "combined_score": 7.4,
+      "world_importance": 6,
+      "business_value": 8,
+      "category": "release",
+      "release_magnitude": "none",
+      "key_insight": "Practitioners can leverage NousCoder-14B, an open-source 14B parameter model with a fully released training stack, as a competitive alternative to proprietary coding agents like Claude Code for tasks involving competitive programming and code generation.",
+      "triage_score": 9,
+      "body": "Nous Research , the open-source artificial intelligence startup backed by crypto venture firm Paradigm , released a new competitive programming model on Monday that it says matches or exceeds several larger proprietary systems — trained in just four days using 48 of Nvidia&#x27;s latest B200 graphics processors . The model, called NousCoder-14B , is another entry in a crowded field of AI coding assistants, but arrives at a particularly charged moment: Claude Code , the agentic programming tool f"
+    },
+    {
+      "title": "Five architects of the AI economy explain where the wheels are coming off",
+      "link": "https://techcrunch.com/2026/05/06/five-architects-of-the-ai-economy-explain-where-the-wheels-are-coming-off/",
+      "combined_score": 7.3,
+      "world_importance": 8,
+      "business_value": 7,
+      "category": "industry",
+      "release_magnitude": "none",
+      "key_insight": "Practitioners should be aware of the looming physical constraints in AI infrastructure (chips, energy) and consider exploring alternative AI architectures like energy-based models for applications requiring rule-based understanding and adaptability, especially in physical AI domains.",
+      "triage_score": 7,
+      "body": "Earlier this week, five people who touch every layer of the AI supply chain sat down at the Milken Global Conference in Beverly Hills, where they talked with TechCrunch about everything from chip shortages to orbital data centers to the possibility that the whole architecture that undergirds the tech is wrong."
+    },
+    {
+      "title": "Operationalizing AI for Scale and Sovereignty",
+      "link": "https://www.technologyreview.com/2026/05/01/1136772/operationalizing-ai-for-scale-and-sovereignty/",
+      "combined_score": 7.0,
+      "world_importance": 7,
+      "business_value": 7,
+      "category": "industry",
+      "release_magnitude": "none",
+      "key_insight": "Practitioners should prioritize data sovereignty and consider implementing 'AI factories' to achieve scalable, sustainable, and well-governed AI operations within their organizations.",
+      "triage_score": 8,
+      "body": "Companies are taking control of their own data to tailor AI for their needs. The challenge lies in balancing ownership with the safe, trusted flow of high‑quality data needed to power reliable insights. This conversation from MIT Technology Review&#8217;s EmTech AI conference examines how AI factories unlock new levels of scale, sustainability, and governance—positioning data&#8230;"
+    },
+    {
+      "title": "Is xAI a neocloud now?",
+      "link": "https://techcrunch.com/2026/05/06/is-xai-a-neocloud-now/",
+      "combined_score": 6.3,
+      "world_importance": 7,
+      "business_value": 6,
+      "category": "industry",
+      "release_magnitude": "none",
+      "key_insight": "Practitioners should be aware that xAI may be expanding its focus to become a major AI infrastructure provider, which could impact future choices for AI compute and deployment.",
+      "triage_score": 6,
+      "body": "xAI's real business may be more about building data centers than training AI models."
+    },
+    {
+      "title": "DeepSeek could hit $45B valuation from its first investment round",
+      "link": "https://techcrunch.com/2026/05/06/deepseek-could-hit-45b-valuation-from-its-first-investment-round/",
+      "combined_score": 5.9,
+      "world_importance": 8,
+      "business_value": 5,
+      "category": "industry",
+      "release_magnitude": "none",
+      "key_insight": "Practitioners should be aware of DeepSeek as a rapidly growing AI company known for developing cost-efficient large language models, potentially influencing future model selection and market dynamics.",
+      "triage_score": 6,
+      "body": "The Chinese AI lab came to prominence in early 2025 after launching a large language model that trained on a fraction of the compute power and at a fraction of the cost of the big U.S. models like those from OpenAI and Anthropic."
+    },
+    {
+      "title": "AI boom pushes Samsung to $1T",
+      "link": "https://techcrunch.com/2026/05/06/ai-boom-pushes-samsung-to-1t/",
+      "combined_score": 5.9,
+      "world_importance": 8,
+      "business_value": 5,
+      "category": "industry",
+      "release_magnitude": "none",
+      "key_insight": "The article reveals that the AI boom is generating massive financial growth for major hardware manufacturers like Samsung, underscoring the significant market demand for AI infrastructure.",
+      "triage_score": 5,
+      "body": "Samsung crossed the $1 trillion valuation mark after shares surged on AI-driven chip demand, making it only the second Asian company after TSMC to hit the milestone."
+    },
+    {
+      "title": "Chrome’s AI features may be hogging 4GB of your computer storage",
+      "link": "https://www.theverge.com/tech/924933/google-chrome-4gb-gemini-nano-ai-features",
+      "combined_score": 5.7,
+      "world_importance": 5,
+      "business_value": 6,
+      "category": "industry",
+      "release_magnitude": "none",
+      "key_insight": "Practitioners should be aware that integrating on-device AI models, even for seemingly minor browser features, can lead to significant storage consumption on user devices.",
+      "triage_score": 7,
+      "body": "Google Chrome may be taking up more of your storage than expected thanks to a large on-device AI model file that, in some cases, is being automatically downloaded to the browser's system folders. Users who have noticed unexplained drops in their available desktop device storage are now discovering that Chrome is installing a 4GB weights.bin [&#8230;]"
+    },
+    {
+      "title": "Khosla-backed robotics startup Genesis AI has gone full stack, demo shows",
+      "link": "https://techcrunch.com/2026/05/06/khosla-backed-robotics-startup-genesis-ai-has-gone-full-stack-demo-shows/",
+      "combined_score": 5.6,
+      "world_importance": 7,
+      "business_value": 5,
+      "category": "release",
+      "release_magnitude": "major",
+      "key_insight": "A Khosla-backed robotics startup has launched its first foundational AI model and demonstrated advanced robotic manipulation, showcasing the potential of full-stack AI solutions in robotics.",
+      "triage_score": 7,
+      "body": "Genesis AI, a startup that raised a $105 million seed round to build foundational AI for robotics, has unveiled its first model, GENE-26.5, but also a demo showcasing a set of robotic hands performing complex tasks."
+    },
+    {
+      "title": "Tinder owner Match Group is slowing hiring to pay for its increased use of AI tools",
+      "link": "https://techcrunch.com/2026/05/06/tinder-owner-match-group-is-slowing-hiring-to-pay-for-its-increased-use-of-ai-tools/",
+      "combined_score": 5.0,
+      "world_importance": 5,
+      "business_value": 5,
+      "category": "industry",
+      "release_magnitude": "none",
+      "key_insight": "Practitioners should be aware that the high costs of AI tools can lead to significant internal resource reallocations, such as reduced hiring, impacting overall business strategy and project funding.",
+      "triage_score": 5,
+      "body": "Match Group said that it's slowing its hiring plans for the rest of the year because AI tools \"cost a lot of money.\""
+    },
+    {
+      "title": "Google updates AI search to include quotes from Reddit and other sources",
+      "link": "https://techcrunch.com/2026/05/06/google-updates-ai-search-to-include-expert-advice-from-reddit-and-other-web-forums/",
+      "combined_score": 4.3,
+      "world_importance": 5,
+      "business_value": 4,
+      "category": "release",
+      "release_magnitude": "minor",
+      "key_insight": "Google's AI search is evolving to incorporate more diverse, user-generated content from forums like Reddit, indicating a shift towards valuing 'human experience' in search results.",
+      "triage_score": 5,
+      "body": "While citing web forums and discussion boards can help users find answers to more niche queries, this design choice could also prove chaotic."
+    },
+    {
+      "title": "Mira Murati tells the court that she couldn’t trust Sam Altman’s words",
+      "link": "https://www.theverge.com/ai-artificial-intelligence/925338/openai-musk-v-altman-mira-murati",
+      "combined_score": 4.2,
+      "world_importance": 7,
+      "business_value": 3,
+      "category": "industry",
+      "release_magnitude": "none",
+      "key_insight": "Practitioners would learn that internal corporate governance and trust issues can significantly impact the stability and public perception of leading AI companies like OpenAI.",
+      "triage_score": 5,
+      "body": "Mira Murati, OpenAI's former CTO, has testified under oath that CEO Sam Altman lied to her about the safety standards for a new AI model. In a video deposition shown during the ongoing Musk v. Altman trial on Wednesday, Murati said Altman falsely stated that OpenAI's legal department determined a new AI model did not [&#8230;]"
+    },
+    {
+      "title": "Google shuts down Project Mariner",
+      "link": "https://www.theverge.com/tech/925559/google-project-mariner-shut-down",
+      "combined_score": 3.3,
+      "world_importance": 4,
+      "business_value": 3,
+      "category": "industry",
+      "release_magnitude": "none",
+      "key_insight": "Google has discontinued an internal project named Project Mariner, indicating a shift in its internal development priorities.",
+      "triage_score": 6,
+      "body": "Google has pulled the plug on Project Mariner, an experimental feature designed to perform tasks for you across the web, as reported earlier by Wired's Maxwell Zeff. The Project Mariner landing page now contains a message that says: \"Thank you for using Project Mariner. It was shut down on May 4th, 2026 and its technology [&#8230;]"
+    }
+  ]
+}
