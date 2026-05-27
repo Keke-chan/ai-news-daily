@@ -1,0 +1,93 @@
+{
+  "date": "2026-05-27",
+  "articles": [
+    {
+      "headline": "Railway Secures $100M to Power AI-Native Cloud, Challenging AWS",
+      "one_liner": "Railway raised $100M to build an AI-native cloud infrastructure, promising sub-second deployments and significant cost savings over legacy platforms like AWS.",
+      "detailed_summary": "Railway, a cloud platform with two million developers, secured $100 million in Series B funding to scale its AI-native cloud infrastructure, aiming to challenge traditional providers like AWS. To achieve sub-second deployments and superior cost efficiency, Railway vertically integrated its stack by building its own data centers, gaining full control over network, compute, and storage layers for optimized build and deploy loops. This approach contrasts with hyperscalers that often charge for idle provisioned capacity and enables Railway to offer usage-based pricing (e.g., $0.00000386 per gigabyte-second of memory) and deployment speeds under one second, significantly outperforming the 2-3 minutes common with tools like Terraform. For practitioners, this translates to a tenfold increase in developer velocity and up to 65-87% cost savings, particularly beneficial for rapidly iterating AI-generated code. Furthermore, Railway's Model Context Protocol server, released in August 2025, allows AI coding agents to directly deploy applications and manage infrastructure, fundamentally shifting software engineering paradigms towards agentic development.",
+      "category": "industry",
+      "vocabulary": [
+        {
+          "term": "Vertically Integrated",
+          "definition": "To control multiple stages of a supply chain or production process within one company.",
+          "example": "By becoming vertically integrated, Railway gained complete oversight of its infrastructure, from hardware to software."
+        },
+        {
+          "term": "Hyperscalers",
+          "definition": "Massive cloud providers like AWS or Google Cloud that offer extensive, scalable computing resources.",
+          "example": "Railway aims to challenge established hyperscalers by offering more cost-efficient and faster deployment solutions."
+        },
+        {
+          "term": "Developer Velocity",
+          "definition": "A measure of how quickly a software development team can deliver working software.",
+          "example": "Railway's platform claims to increase developer velocity tenfold by significantly reducing deployment times."
+        }
+      ],
+      "discussion_question": "Considering Railway's future capability for automated entities to directly deploy applications and manage infrastructure, what novel technical challenges or ethical considerations arise regarding oversight and accountability?",
+      "source_url": "https://venturebeat.com/infrastructure/railway-secures-usd100-million-to-challenge-aws-with-ai-native-cloud",
+      "source_title": "Railway secures $100 million to challenge AWS with AI-native cloud infrastructure"
+    },
+    {
+      "headline": "India's Gig Economy Powers Robot Training Data Collection for Physical AI",
+      "one_liner": "Human Archive collects egocentric, multi-modal data from Indian gig workers to train physical AI, raising $8.2M.",
+      "detailed_summary": "Human Archive, a Silicon Valley startup, recently secured $8.2 million in funding to scale its unique approach of collecting real-world egocentric data from India's booming gig economy. The company deploys over 1,000 active headsets, partnering with smaller home services and hospitality firms, where workers wear camera-equipped caps and other sensors during tasks. Crucially, Human Archive differentiates itself by synchronously aligning multi-modal data, including headset RGB-D (color imagery with depth information), tactile force feedback from gloves, and full-body motion capture, using custom hardware to create richer datasets than video-only methods. This comprehensive data collection offers robotics and AI researchers an unprecedented resource for training physical AI models, potentially accelerating robot capabilities in complex real-world environments. However, practitioners must navigate the ethical considerations of data privacy and consent, especially given regulatory scrutiny under India's DPDP Act.",
+      "category": "industry",
+      "vocabulary": [
+        {
+          "term": "Egocentric data",
+          "definition": "Information collected from a first-person perspective, often via wearable sensors like cameras, reflecting the wearer's view.",
+          "example": "Human Archive collects extensive egocentric data from gig workers to train robots on real-world tasks."
+        },
+        {
+          "term": "Multi-modal data",
+          "definition": "The combination of different types of sensory information, such as visual, auditory, or tactile, for a richer understanding.",
+          "example": "By synchronously aligning multi-modal data, Human Archive creates comprehensive datasets for advanced robotics research."
+        },
+        {
+          "term": "RGB-D",
+          "definition": "A type of sensor output combining color (Red, Green, Blue) imagery with corresponding depth information for 3D perception.",
+          "example": "The custom hardware captures RGB-D data, providing robots with both visual appearance and spatial awareness of their environment."
+        }
+      ],
+      "discussion_question": "Considering Human Archive's use of economic incentives for data collection from gig workers and customers, how should practitioners ethically balance innovation with the potential for exploitation in such contexts?",
+      "source_url": "https://techcrunch.com/2026/05/26/human-archive-taps-into-indias-services-startups-to-collect-data-for-physical-ai/",
+      "source_title": "This startup is betting India’s gig economy can train the world’s robots"
+    },
+    {
+      "headline": "Listen Labs Secures $69M to Scale AI-Powered Customer Interviews",
+      "one_liner": "Listen Labs raised $69M to expand its AI platform, automating in-depth customer interviews and delivering rapid, fraud-resistant insights.",
+      "detailed_summary": "Listen Labs recently secured $69 million in Series B funding, valuing the company at $500 million, to scale its AI platform for customer interviews after a viral hiring stunt. The platform utilizes an AI moderator to conduct open-ended video conversations with participants from its 30 million-person network, asking dynamic follow-up questions to gather nuanced feedback. A crucial technical mechanism is its \"quality guard\" system, which cross-references LinkedIn profiles with video responses and checks consistency to combat rampant fraud in market research. This approach overcomes the limitations of traditional methods, offering the depth of qualitative interviews at the scale of quantitative surveys, delivering insights in hours or days rather than weeks or months, and significantly reducing fraudulent responses. For practitioners, this enables continuous feedback loops, rapidly validating product concepts and influencing decisions, while democratizing access to customer understanding across teams. The company also plans future features like synthetic customer simulation and automated actions based on research findings, with ethical guardrails.",
+      "category": "use-case",
+      "vocabulary": [],
+      "discussion_question": "",
+      "source_url": "https://venturebeat.com/technology/listen-labs-raises-usd69m-after-viral-billboard-hiring-stunt-to-scale-ai",
+      "source_title": "Listen Labs raises $69M after viral billboard hiring stunt to scale AI customer interviews"
+    },
+    {
+      "headline": "Agentic Business Transformation: Rewiring Organizations for AI Agents",
+      "one_liner": "Agentic Business Transformation (ABT) is proposed as a new framework for organizations to fully integrate AI agents by redesigning their core operating models.",
+      "detailed_summary": "The article introduces \"Agentic Business Transformation\" (ABT), a framework by Ema and HFS Research, to guide enterprises in deeply integrating AI agents and overcoming the current disconnect between ambition and execution. ABT posits AI agents as \"connective tissue\" operating at machine speed across multiple systems, retrieving and interpreting data from diverse applications to make contextualized decisions and execute entire workflows. This approach fundamentally differs from merely layering AI onto existing human-centric models, which the article labels the \"sticky tape problem,\" and goes beyond digital transformation or co-pilot concepts. Practitioners must redesign their technology stacks to enable agents to access multiple datasets simultaneously, rethink workforce structures for hybrid human-AI teams, and shift success metrics from activity-based outputs to outcome-focused results. Embracing ABT's three pillars—technology, workforce, and metrics—is crucial for unlocking significant business process acceleration and achieving true competitive differentiation through agentic AI.",
+      "category": "industry",
+      "vocabulary": [
+        {
+          "term": "Lexicon",
+          "definition": "The vocabulary of a person, language, or a specific branch of knowledge.",
+          "example": "The article highlights a gap in the existing lexicon regarding comprehensive enterprise AI integration."
+        },
+        {
+          "term": "Connective tissue",
+          "definition": "A metaphorical element that links different parts of an organization or system together.",
+          "example": "AI agents function as connective tissue, allowing seamless information flow and decision-making across disparate applications."
+        },
+        {
+          "term": "Tacit knowledge",
+          "definition": "Knowledge that is difficult to articulate or transfer, often gained through experience and practice.",
+          "example": "By accessing diverse datasets, advanced agents can develop tacit knowledge, leading to more nuanced and contextualized decisions."
+        }
+      ],
+      "discussion_question": "Given the article's emphasis on redesigning workforce structures for hybrid human-AI teams, what are the most significant ethical considerations managers must navigate to ensure psychological safety and fair status dynamics for human employees?",
+      "source_url": "https://www.technologyreview.com/2026/05/26/1137584/rethinking-organizational-design-in-the-age-of-agentic-ai/",
+      "source_title": "Rethinking organizational design in the age of agentic AI"
+    }
+  ]
+}
